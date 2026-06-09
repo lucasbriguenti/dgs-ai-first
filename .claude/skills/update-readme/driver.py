@@ -21,6 +21,8 @@ ROOT = Path(__file__).resolve().parents[3]
 IGNORE_FILES = {"CLAUDE.md", ".gitignore", ".DS_Store", "README.md"}
 IGNORE_DIRS = {".git", ".claude", "__pycache__", "node_modules"}
 
+FOLDER_PATTERN = re.compile(r"^(semana|cenario)-(\d+)$")
+
 
 def first_heading(path: Path) -> str | None:
     try:
@@ -58,7 +60,7 @@ def _render_dir(directory: Path, prefix: str, child_prefix: str, depth: int) -> 
 
 def build_tree() -> str:
     weeks = sorted(
-        [d for d in ROOT.iterdir() if d.is_dir() and re.match(r"^semana-\d+$", d.name)],
+        [d for d in ROOT.iterdir() if d.is_dir() and FOLDER_PATTERN.match(d.name)],
         key=lambda d: d.name,
     )
     lines = ["```", "."]
@@ -73,14 +75,23 @@ def build_tree() -> str:
 
 
 def build_intro(weeks: list[Path]) -> str:
-    nums = [re.search(r"\d+", w.name).group() for w in weeks]  # type: ignore[union-attr]
+    if not weeks:
+        return (
+            "Exercícios práticos do programa de formação AI First, "
+            "cobrindo fundamentos de IA Generativa, Engenharia de Prompt, Engenharia de Contexto, "
+            "RAG e estruturação de projetos AI First."
+        )
+    # Detect folder prefix (semana vs cenario) from the first entry
+    prefix = FOLDER_PATTERN.match(weeks[0].name).group(1)  # type: ignore[union-attr]
+    label = "Semana" if prefix == "semana" else "Cenário"
+    nums = [FOLDER_PATTERN.match(w.name).group(2) for w in weeks]  # type: ignore[union-attr]
     if len(nums) == 1:
-        semanas_str = f"**Semana {nums[0]}**"
+        items_str = f"**{label} {nums[0]}**"
     else:
-        partes = [f"**Semana {n}**" for n in nums]
-        semanas_str = ", ".join(partes[:-1]) + " e " + partes[-1]
+        partes = [f"**{label} {n}**" for n in nums]
+        items_str = ", ".join(partes[:-1]) + " e " + partes[-1]
     return (
-        f"Exercícios práticos das {semanas_str} do programa de formação AI First, "
+        f"Exercícios práticos dos {items_str} do programa de formação AI First, "
         f"cobrindo fundamentos de IA Generativa, Engenharia de Prompt, Engenharia de Contexto, "
         f"RAG e estruturação de projetos AI First."
     )
@@ -92,7 +103,7 @@ def update_readme(dry_run: bool = False) -> None:
     content = original
 
     weeks = sorted(
-        [d for d in ROOT.iterdir() if d.is_dir() and re.match(r"^semana-\d+$", d.name)],
+        [d for d in ROOT.iterdir() if d.is_dir() and FOLDER_PATTERN.match(d.name)],
         key=lambda d: d.name,
     )
 

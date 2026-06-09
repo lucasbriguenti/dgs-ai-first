@@ -1,6 +1,6 @@
 # Prática 1 — Assistente de IA com RAG para a NovaTech
 
-Exercícios práticos das **Semana 1** e **Semana 2** do programa de formação AI First, cobrindo fundamentos de IA Generativa, Engenharia de Prompt, Engenharia de Contexto, RAG e estruturação de projetos AI First.
+Exercícios práticos dos **Cenário 1** e **Cenário 2** do programa de formação AI First, cobrindo fundamentos de IA Generativa, Engenharia de Prompt, Engenharia de Contexto, RAG e estruturação de projetos AI First.
 
 ## Cenário
 
@@ -18,7 +18,7 @@ A **NovaTech** é uma empresa de logística com 1.200 funcionários que contrato
 
 ```
 .
-├── semana-1/
+├── cenario-1/
 │   ├── FAQ-atendimento.md   # FAQ-Atendimento — Perguntas Frequentes do Time de Suporte
 │   ├── POL-001-politica-devolucao.md   # POL-001 — Política de Devolução de Mercadorias
 │   ├── PROC-042-frete-especial-v1.md   # PROC-042 — Procedimento de Cálculo de Frete Especial
@@ -26,6 +26,7 @@ A **NovaTech** é uma empresa de logística com 1.200 funcionários que contrato
 │   ├── SLA-2024-tabela-sla-clientes.md   # SLA-2024 — Tabela de SLA por Tipo de Cliente
 │   ├── anexo-a-documentacao-simulada-novatech.md   # Anexo A — Documentação Simulada da NovaTech
 │   ├── anexo-b-chunks-referencia-rag.md   # Anexo B — Chunks de Referência do Pipeline de RAG
+│   ├── anexo-c-estrutura-repositorio.md   # Anexo C — Estrutura do Repositório NovaTech Assistant
 │   ├── exercicio-fase-1-entendimento.md   # Cenário-Âncora 1 — Fase de Entendimento e Contexto
 │   ├── tech-lead-exercicio-1.1-prompt.md   # Prompt — Tech Lead | Exercício 1.1 — ADRs Arquiteturais
 │   ├── tech-lead-exercicio-1.2-prompt.md   # Prompt — Tech Lead | Exercício 1.2 — Prompt Engineering como Artefato de Arquitetura
@@ -46,8 +47,31 @@ A **NovaTech** é uma empresa de logística com 1.200 funcionários que contrato
 │       ├── cenario-1-avaliacao-qa.md   # Skill de Avaliação — QA (Cenário 1)
 │       ├── cenario-1-avaliacao-tech-lead.md   # Skill de Avaliação — Tech Lead (Cenário 1)
 │       └── cenario-1-prompt-avaliacao.md   # Prompt Padrão de Avaliação — Trilha AI First DGS
-└── semana-2/
+└── cenario-2/
     ├── exercicio-2-fase-estruturacao.md   # Cenário-Âncora 2 — Fase de Estruturação do Trabalho
+    ├── tech-lead-2.1.prompt.md   # Prompts — Tech Lead 2.1 (Construcao e Teste do AGENTS.md)
+    ├── tech-lead-2.2.prompt.md   # Prompts — Tech Lead 2.2 (Arquitetura de MCP)
+    ├── tech-lead-2.3.prompt.md   # Prompts — Tech Lead 2.3 (Criacao e Teste de Skills Tecnicas)
+    ├── exercicios/
+    │   ├── 2.1/
+    │   │   ├── AGENTS-v1.md   # AGENTS.md — NovaTech Assistant
+    │   │   ├── AGENTS-v2.md   # AGENTS.md — NovaTech Assistant
+    │   │   ├── auditoria-v1.md   # Auditoria de Aderência — AGENTS.md v1 × Outputs Copilot (Rodada 1)
+    │   │   ├── autochecagem-v2.md   # Auto-checagem v2
+    │   │   ├── relatorio-final.md   # Relatório Final — Exercício 2.1 (Construção e Teste do AGENTS.md)
+    │   │   ├── src/
+    │   │   └── tests/
+    │   └── 2.2/
+    │       ├── arquitetura-mcp.md   # Arquitetura de MCP — NovaTech Assistant
+    │       ├── diagrama-e-matriz-permissoes.md   # Diagrama Detalhado e Matriz de Permissões — MCP NovaTech
+    │       ├── health-check-instrucoes.md   # Health Check MCP - NovaTech
+    │       ├── mcp-health-check.ts
+    │       ├── mcp.servers.json
+    │       ├── package-lock.json
+    │       ├── package.json
+    │       ├── plano-contingencia.md   # Plano de Contingência Operacional — MCP NovaTech
+    │       ├── politica-aprovacao-mcp-server.md   # Política de Aprovação de Novos MCP Servers — NovaTech Assistant
+    │       ├── relatorio-final.md   # Relatório Final — Exercício 2.2: Arquitetura de MCP
     └── skills-avaliacao/
         ├── avaliacao-delivery-manager.md   # Skill de Avaliação — Delivery Manager (Cenário 2)
         ├── avaliacao-desenvolvedor.md   # Skill de Avaliação — Desenvolvedor (Cenário 2)
