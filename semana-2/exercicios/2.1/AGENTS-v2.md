@@ -70,6 +70,14 @@ assertContextBudget({
 - **NÃO DEVE-SE** expandir o histórico de turnos além de 3 sem ADR explícita.
 - **QUANDO EM DÚVIDA** sobre o tamanho do system prompt, meça com `tiktoken` antes de fazer deploy.
 
+### Enforcement obrigatório do budget (critérios de falha)
+
+- **DEVE-SE** calcular tokens reais de `systemPromptTokens`, `chunkTokens` e `historyTokens` antes de chamar Azure OpenAI.
+- **NÃO DEVE-SE** passar valores placeholder (`0`, `-1`, `null`, `undefined`) para `assertContextBudget` fora de testes.
+- **DEVE-SE** lançar `BudgetExceededError` quando qualquer limite for excedido e retornar erro padronizado `{ error, code }` no handler.
+- **DEVE-SE** registrar `budget_snapshot` no log estruturado antes da chamada ao modelo contendo `{ systemPromptTokens, chunkTokens, historyTokens, totalTokens }`.
+- **NÃO DEVE-SE** executar completion se `assertContextBudget` falhar.
+
 ### Arquitetura de pastas
 
 ```
@@ -166,6 +174,13 @@ type RagResult = {
 - **NÃO DEVE-SE** retornar `RagResult` com `source_document` diferente de `"PENDING"` em stubs.
 - **DEVE-SE** comentar stubs com `// TODO: integrar Azure AI Search + Azure OpenAI`.
 
+### Critério de saída do estado `PENDING`
+
+- **DEVE-SE** manter `source_document: "PENDING"` somente enquanto o pipeline RAG real não estiver integrado.
+- **NÃO DEVE-SE** promover para produção endpoint que retorne `"PENDING"` em mais de 5% das respostas em ambiente de staging.
+- **DEVE-SE** substituir `"PENDING"` por documento real antes do merge em `main` quando já existir integração com busca vetorial e seleção por `vigencia`.
+- **DEVE-SE** bloquear PR para `main` se houver fallback hardcoded de documento real em stub.
+
 ### Commits
 
 - **DEVE-SE** seguir Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
@@ -226,6 +241,9 @@ Use este checklist para validar se o arquivo está prescritivo antes de aceitar 
 - [ ] **C12** — `src/shared/errors.ts` existe e exporta `ValidationError`, `InternalError` e `BudgetExceededError`.
 - [ ] **C13** — Tipos de domínio (`QueryRequest`, `QueryResponse`, etc.) exportados de `src/shared/types.ts`; sem duplicatas em `validator.ts`.
 - [ ] **C14** — Stubs de pipeline RAG retornam `source_document: "PENDING"` e incluem campo `vigencia: string | null`.
+- [ ] **C15** — `assertContextBudget` recebe tokens reais (sem placeholders) antes de toda chamada ao modelo.
+- [ ] **C16** — Logs incluem `budget_snapshot` com `systemPromptTokens`, `chunkTokens`, `historyTokens` e `totalTokens`.
+- [ ] **C17** — Endpoint em staging tem taxa de `source_document: "PENDING"` ≤ 5% antes de PR para `main`.
 
 ---
 

@@ -1,6 +1,8 @@
 import type { HttpRequest, InvocationContext } from "@azure/functions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { BudgetExceededError } from "../../../../src/shared/errors";
+
 const mocks = vi.hoisted(() => {
     const executeQueryMock = vi.fn();
     const requestLogger = {
@@ -231,6 +233,37 @@ describe("queryHandler", () => {
                 error: expect.any(Object),
             },
             "output_validation_failed",
+        );
+    });
+
+    it("returns 400 when context budget is exceeded", async () => {
+        mocks.executeQueryMock.mockRejectedValue(
+            new BudgetExceededError({
+                systemPromptTokens: 5000,
+                chunkTokens: 1200,
+                historyTokens: 500,
+                errors: ["system_prompt_limit_exceeded"],
+            }),
+        );
+
+        const request = createRequest({
+            question: "Pergunta valida",
+            conversation: [],
+        });
+
+        const response = await queryHandler(request, createContext("req-budget-exceeded"));
+
+        expect(response.status).toBe(400);
+        expect(response.jsonBody).toEqual({
+            error: "Context budget exceeded",
+            code: "CONTEXT_BUDGET_EXCEEDED",
+        });
+        expect(mocks.requestLogger.warn).toHaveBeenCalledWith(
+            {
+                requestId: "req-budget-exceeded",
+                budget: expect.any(Object),
+            },
+            "context_budget_exceeded",
         );
     });
 });

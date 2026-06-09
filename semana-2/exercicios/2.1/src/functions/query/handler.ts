@@ -6,7 +6,11 @@ import {
 } from "@azure/functions";
 
 import { executeQuery } from "../../services/query-service";
-import { InternalError, ValidationError } from "../../shared/errors";
+import {
+    BudgetExceededError,
+    InternalError,
+    ValidationError,
+} from "../../shared/errors";
 import { logger } from "../../shared/logger";
 import type { QueryRequest } from "../../shared/types";
 import { queryRequestSchema, queryResponseSchema } from "./validator";
@@ -27,6 +31,16 @@ function internalErrorResponse(error: InternalError): HttpResponseInit {
         jsonBody: {
             error: error.message,
             code: "INTERNAL_ERROR",
+        },
+    };
+}
+
+function contextBudgetExceededResponse(): HttpResponseInit {
+    return {
+        status: 400,
+        jsonBody: {
+            error: "Context budget exceeded",
+            code: "CONTEXT_BUDGET_EXCEEDED",
         },
     };
 }
@@ -63,7 +77,34 @@ export async function queryHandler(
     }
 
     const input = parsedInput.data as QueryRequest;
-    const serviceResponse = await executeQuery(input, requestLogger);
+    let serviceResponse;
+
+    try {
+        serviceResponse = await executeQuery(input, requestLogger);
+    } catch (error) {
+        if (error instanceof BudgetExceededError) {
+            requestLogger.warn(
+                {
+                    requestId,
+                    budget: error.budget,
+                },
+                "context_budget_exceeded",
+            );
+
+            return contextBudgetExceededResponse();
+        }
+
+        const internalError = new InternalError("Internal Server Error");
+        requestLogger.error(
+            {
+                requestId,
+                error,
+            },
+            "query_execution_failed",
+        );
+
+        return internalErrorResponse(internalError);
+    }
 
     const parsedOutput = queryResponseSchema.safeParse(serviceResponse);
 

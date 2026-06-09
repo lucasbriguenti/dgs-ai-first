@@ -6,6 +6,45 @@ type ContextBudgetInput = {
     historyTokens: number;
 };
 
+type BuildBudgetInput = {
+    systemPrompt: string;
+    chunks: string[];
+    history: string[];
+};
+
+const APPROX_CHARS_PER_TOKEN = 4;
+
+export function estimateTokenCount(text: string): number {
+    const normalizedText = text.trim();
+
+    if (normalizedText.length === 0) {
+        return 0;
+    }
+
+    return Math.ceil(normalizedText.length / APPROX_CHARS_PER_TOKEN);
+}
+
+export function buildContextBudgetSnapshot(input: BuildBudgetInput): ContextBudgetInput & {
+    totalTokens: number;
+} {
+    const systemPromptTokens = estimateTokenCount(input.systemPrompt);
+    const chunkTokens = input.chunks.reduce(
+        (acc, chunk) => acc + estimateTokenCount(chunk),
+        0,
+    );
+    const historyTokens = input.history.reduce(
+        (acc, turn) => acc + estimateTokenCount(turn),
+        0,
+    );
+
+    return {
+        systemPromptTokens,
+        chunkTokens,
+        historyTokens,
+        totalTokens: systemPromptTokens + chunkTokens + historyTokens,
+    };
+}
+
 export function assertContextBudget(input: ContextBudgetInput): void {
     const errors: string[] = [];
 
@@ -19,6 +58,13 @@ export function assertContextBudget(input: ContextBudgetInput): void {
 
     if (input.historyTokens < 0) {
         errors.push("invalid_history_tokens");
+    }
+
+    if (
+        input.systemPromptTokens + input.chunkTokens + input.historyTokens >
+        16000
+    ) {
+        errors.push("total_budget_limit_exceeded");
     }
 
     if (errors.length > 0) {
