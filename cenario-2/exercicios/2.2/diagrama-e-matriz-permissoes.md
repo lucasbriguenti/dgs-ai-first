@@ -1,138 +1,156 @@
-# Diagrama Detalhado e Matriz de Permissões — MCP NovaTech
+# Diagrama detalhado e Matriz de Permissões — MCP local (NovaTech Assistant)
 
-> **Artefatos adicionais — Prompt 2**  
-> Refinamento do documento de arquitetura MCP.  
-> Regra geral aplicada: **deny-by-default** — qualquer permissão não listada aqui está negada.
+**Projeto:** NovaTech Assistant
+**Papel:** Tech Lead
+**Ferramenta de autoria:** Claude (chat)
+**Data:** 2026-06-15
+**Escopo:** Exercício 2.2 — Prompt 2 (refinamento de [`arquitetura-mcp.md`](./arquitetura-mcp.md))
+
+> **Princípio reitor: deny-by-default.** Nenhum escopo amplo sem justificativa explícita. `docs/novatech` e `data/retrieval-corpus` são **SEMPRE read-only**. Na dúvida, **nega**. Tudo que não está explicitamente concedido nesta matriz está negado.
 
 ---
 
-## Artefato 1 — Diagrama Mermaid Detalhado
+## 1. Diagrama detalhado (Mermaid)
 
-O diagrama abaixo mostra: agentes, servidores MCP, tipo de acesso por seta (RO / RW), e fronteiras de segurança.
+Mostra os 3 agentes, os 4 servers locais, o acesso por pasta (RW / RO / DENY) e duas fronteiras de segurança: a **RO das fontes de negócio** (ADR-0003) e a **zona de segredos nunca mapeada**.
 
 ```mermaid
 flowchart TB
-    subgraph AGENTES["⚙️ Agentes de IA"]
-        CP["GitHub Copilot\n(IDE — VS Code / JetBrains)"]
-        CC["Claude Code\n(CLI — dev local)"]
-        CH["Claude Chat\n(sessão interativa)"]
-    end
+  classDef rw fill:#e6f4ea,stroke:#137333,color:#0d652d;
+  classDef ro fill:#fef7e0,stroke:#b06000,color:#7a4100;
+  classDef deny fill:#fce8e6,stroke:#c5221f,color:#a50e0e,stroke-dasharray:4 3;
+  classDef srv fill:#e8f0fe,stroke:#1a73e8,color:#174ea6;
+  classDef agent fill:#f3e8fd,stroke:#8430ce,color:#5b1d9e;
 
-    subgraph PAPEIS["👤 Papéis que operam os agentes"]
-        direction LR
-        TL["Tech Lead"]
-        DEV["Desenvolvedor"]
-        QA_["QA"]
-        PS["Product Specialist"]
-        DM["Delivery Manager"]
-    end
+  subgraph AGENTS["Agentes (consumidores MCP)"]
+    direction LR
+    CP["GitHub Copilot<br/>gera código no IDE"]:::agent
+    CC["Claude Code<br/>refatora / automação"]:::agent
+    CH["Claude Chat<br/>design / arquitetura"]:::agent
+  end
 
-    TL -.->|opera| CC
-    TL -.->|opera| CH
-    DEV -.->|opera| CC
-    DEV -.->|opera| CP
-    QA_ -.->|opera| CH
-    PS -.->|opera| CH
-    DM -.->|opera| CH
+  subgraph SERVERS["MCP servers locais — .mcp/mcp.json (versionado no Git)"]
+    direction LR
+    FS["filesystem<br/>npx server-filesystem"]:::srv
+    GIT["git<br/>uvx mcp-server-git · read-only"]:::srv
+    MEM["memory<br/>npx server-memory"]:::srv
+    EV["everything<br/>npx server-everything · aprendizado"]:::srv
+  end
 
-    subgraph MCP["🔌 MCP Servers (infraestrutura gerenciada)"]
-        MCP01["MCP-01\n**github**\n────────────\nTools: get_file, list_commits\n        create_pr, get_diff\n        search_code\nResources: repo tree"]
-        MCP02["MCP-02\n**azure-ai-search**\n────────────\nTools: search_documents\n        get_document\nResources: index_schema"]
-        MCP03["MCP-03\n**azure-openai**\n────────────\nTools: chat_completion\n        get_embeddings\nResources: deployment_info"]
-        MCP04["MCP-04\n**confluence-novatech**\n────────────\nTools: get_page\n        search_pages\nResources: page_content"]
-        MCP05["MCP-05\n**azure-devops**\n────────────\nTools: create_work_item\n        update_work_item\n        get_work_item\n        list_work_items\n        get_build_status\nResources: backlog"]
-    end
+  %% Agente -> server (acesso máximo do agente). Linha cheia = RW, tracejada = RO
+  CP -->|RW| FS
+  CC -->|RW| FS
+  CH -.->|RO| FS
+  CP -.->|RO| GIT
+  CC -.->|RO| GIT
+  CH -.->|RO| GIT
+  CP -->|RW| MEM
+  CC -->|RW| MEM
+  CH -->|RW| MEM
+  CC -.->|RO| EV
+  CH -.->|RO| EV
 
-    subgraph EXTERNOS["🌐 Sistemas Externos"]
-        GH["GitHub\ndb1/novatech-assistant"]
-        AIS["Azure AI Search\nnovatech-docs"]
-        AOAI["Azure OpenAI\ngpt-4o-dev"]
-        ADO["Azure DevOps\nNovaTech-Assistant"]
-    end
+  subgraph CODE["Código do projeto — RW autorizado"]
+    direction LR
+    SRC["./src"]:::rw
+    SPECS["./specs"]:::rw
+    SKILLS["./skills"]:::rw
+  end
 
-    subgraph NOVATECH_DATA["🔒 Dados Internos NovaTech\n(tratamento especial — ver R1 na arquitetura)"]
-        CONF["Confluence NovaTech\nNOVATECH-DOCS space"]
-        AIS
-    end
+  subgraph BIZ["🔒 Fronteira RO — fontes de negócio · ADR-0003 · escrita = deny-by-default"]
+    direction LR
+    DOCS["./docs/novatech"]:::ro
+    CORPUS["./data/retrieval-corpus"]:::ro
+  end
 
-    %% Claude Code → MCP servers
-    CC -->|"RO: get_file, search_code\nRW: create_pr"| MCP01
-    CC -->|"RO: search_documents"| MCP02
-    CC -->|"RW: chat_completion\n(env dev apenas)"| MCP03
-    CC -->|"RO: get_page, search_pages"| MCP04
-    CC -->|"RW: create/update_work_item"| MCP05
+  subgraph SECRETS["⛔ Fronteira de segredos — NUNCA mapeado (deny-by-default)"]
+    direction LR
+    ROOT["raiz do repo (.)"]:::deny
+    ENV[".env / *.key / *.pem"]:::deny
+    GITI[".git internals"]:::deny
+    NM["node_modules"]:::deny
+    INFRA["./infra (Bicep)"]:::deny
+  end
 
-    %% Claude Chat → MCP servers
-    CH -->|"RO: get_file, get_diff\nlist_commits"| MCP01
-    CH -->|"RO: search_documents\nget_document"| MCP02
-    CH -->|"RW: chat_completion\n(env dev apenas)"| MCP03
-    CH -->|"RO: get_page, search_pages"| MCP04
-    CH -->|"RW: create/update_work_item\nlist_work_items"| MCP05
+  %% filesystem -> pastas
+  FS -->|RW| SRC
+  FS -->|RW| SPECS
+  FS -->|RW| SKILLS
+  FS -.->|RO: OS perms + write-probe| DOCS
+  FS -.->|RO: OS perms + write-probe| CORPUS
+  FS --x ROOT
+  FS --x ENV
+  FS --x GITI
+  FS --x NM
+  FS --x INFRA
 
-    %% Copilot → MCP servers (mais restrito — só leitura)
-    CP -->|"RO: get_file, search_code"| MCP01
-    CP -->|"RO: get_page"| MCP04
-
-    %% MCP → Sistemas externos
-    MCP01 --- GH
-    MCP02 --- AIS
-    MCP03 --- AOAI
-    MCP04 --- CONF
-    MCP05 --- ADO
-
-    %% Estilos
-    style NOVATECH_DATA fill:#fff3cd,stroke:#ffc107,color:#333,stroke-width:2px
-    style MCP fill:#e3f2fd,stroke:#1976D2,color:#333,stroke-width:2px
-    style AGENTES fill:#e8f5e9,stroke:#388E3C,color:#333,stroke-width:2px
-    style PAPEIS fill:#f3e5f5,stroke:#7B1FA2,color:#333,stroke-width:1px,stroke-dasharray:4
+  %% git -> repo (somente leitura de histórico)
+  GIT -.->|RO histórico/diff| SRC
 ```
 
-### Legenda
-
-| Estilo de seta | Significado |
-|----------------|-------------|
-| `RO: <tool>` | Acesso somente leitura — a tool não persiste nem modifica estado externo |
-| `RW: <tool>` | Acesso de leitura e escrita — a tool modifica estado em sistema externo |
-| Linha tracejada `-.->` | Relação humano → agente (operação, não chamada MCP) |
-| Borda amarela | Dados classificados como internos da NovaTech — requerem DLP e auditoria adicional |
+**Legenda:**
+- **Linha cheia `→` = RW** · **linha tracejada `⇢` = RO** · **`──x` = DENY** (negado/não mapeado).
+- **`RO: OS perms + write-probe`**: o reference `server-filesystem` expõe `write_file`/`edit_file` em toda raiz; a garantia RO **não** vem da config, e sim de defesa em profundidade — permissões read-only no SO **+** write-probe no health check (ver `arquitetura-mcp.md` §4.1).
+- Verde = RW autorizado · Amarelo = RO (negócio) · Vermelho tracejado = zona negada.
 
 ---
 
-## Artefato 2 — Matriz de Permissões Detalhada
+## 2. Matriz de permissões
 
-Regras aplicadas:
-- Permissões amplas sem justificativa explícita são **negadas por padrão**.
-- Em caso de incerteza entre dois escopos, o **mais restritivo** é escolhido.
-- Cada linha é uma combinação server × tool/resource × papel autorizado.
+Colunas: **Server · Primitiva exposta · Pasta/escopo · Acesso · Papel autorizado · Justificativa de least privilege · Risco se superprivilegiado.**
+`DENY` = explicitamente negado (deny-by-default) — listado para tornar a fronteira auditável.
 
-| MCP Server | Tool / Resource / Prompt exposto | Papel autorizado | Escopo mínimo concedido | Justificativa de least privilege | Risco principal se superprivilegiado |
-|------------|----------------------------------|-----------------|------------------------|----------------------------------|--------------------------------------|
-| MCP-01 `github` | `get_file_contents` | Tech Lead, Desenvolvedor, QA, Product Specialist | `repo:read` no repositório `db1/novatech-assistant` apenas | Outros repositórios DB1 não são contexto deste projeto | Exposição de código proprietário de outros clientes DB1 ao agente |
-| MCP-01 `github` | `create_pull_request` | Tech Lead, Desenvolvedor | `pull_requests:write` no repositório `db1/novatech-assistant` apenas | Apenas papéis que produzem código criam PRs; PS e DM não precisam criar PRs | Agente cria PRs em nome de papéis não-técnicos, introduzindo código não revisado |
-| MCP-01 `github` | `list_commits`, `get_diff` | Tech Lead, Desenvolvedor, QA | `repo:read` (já coberto) | Leitura de histórico; sem escopo adicional necessário | — |
-| MCP-01 `github` | `search_code` | Tech Lead, Desenvolvedor | `repo:read` (já coberto) | QA e PS não precisam buscar código para suas tarefas típicas | Baixo risco; negado por desnecessidade, não por ameaça |
-| MCP-01 `github` | `delete_branch`, `force_push` | **Nenhum** | **NEGADO** | Ações destrutivas nunca são delegadas a agentes; requerem ação humana direta | Perda irreversível de código; bypass de branch protection |
-| MCP-02 `azure-ai-search` | `search_documents` | Todos os papéis | `Search Index Reader` no índice `novatech-docs` apenas | Toda a equipe pode precisar consultar o índice para validar contexto | — |
-| MCP-02 `azure-ai-search` | `get_document` | Tech Lead, Desenvolvedor, QA | `Search Index Reader` (já coberto) | PS e DM usam o Confluence para documentação de negócio; não precisam do índice bruto | PS com acesso ao índice bruto poderia vazar chunks não validados para stakeholders |
-| MCP-02 `azure-ai-search` | `create_index`, `delete_index`, `upload_documents` | **Nenhum** | **NEGADO** | Gerenciamento do índice é feito pelo pipeline de ingestão (`src/pipeline/`), nunca por agente interativo | Agente reindexando com dados incorretos corromperia a base de conhecimento do assistente |
-| MCP-03 `azure-openai` | `chat_completion` (deployment `gpt-4o-dev`) | Tech Lead, Desenvolvedor, QA | `Cognitive Services OpenAI User` na deployment `gpt-4o-dev` | Agentes só acessam ambiente dev; deployment de produção `gpt-4o-prod` é isolada | Consumo de quota de produção; respostas de dev vazando para usuários finais |
-| MCP-03 `azure-openai` | `get_embeddings` (deployment `text-embedding-ada-002-dev`) | Desenvolvedor | `Cognitive Services OpenAI User` na deployment de embedding dev | Apenas dev precisa gerar embeddings durante implementação de `src/services/search.ts` | Custo de embedding para uso não-produtivo se concedido a todos |
-| MCP-03 `azure-openai` | `chat_completion` (deployment `gpt-4o-prod`) | **Nenhum** | **NEGADO** | Produção não é acessível via agente em nenhuma circunstância | Custo descontrolado; respostas sem validação chegando a usuários reais |
-| MCP-04 `confluence-novatech` | `get_page` | Todos os papéis | `space:read` no espaço `NOVATECH-DOCS` apenas | Toda a equipe precisa consultar documentação de negócio; espaços de RH e Financeiro da NovaTech não são relevantes | Agente acessando dados de RH ou contratos financeiros da NovaTech via Confluence |
-| MCP-04 `confluence-novatech` | `search_pages` | Tech Lead, Desenvolvedor, Product Specialist | `space:read` (já coberto) | QA e DM tipicamente buscam páginas específicas, não precisam de busca full-text | Baixo; negado por desnecessidade |
-| MCP-04 `confluence-novatech` | `create_page`, `update_page` | **Nenhum** | **NEGADO** | Confluence da NovaTech é sistema de registro do cliente; agentes não escrevem em sistemas de clientes | Documentação do cliente corrompida ou poluída com conteúdo gerado por IA sem revisão |
-| MCP-05 `azure-devops` | `create_work_item` | Tech Lead, Delivery Manager | `Work Items: Write` no projeto `NovaTech-Assistant` apenas | Criação de tasks é responsabilidade de TL e DM no fluxo SDD | Dev criando work items fora do fluxo aprovado quebraria rastreabilidade das specs |
-| MCP-05 `azure-devops` | `update_work_item` | Tech Lead, Desenvolvedor, Delivery Manager | `Work Items: Write` (já coberto) | Devs precisam atualizar status das tasks; QA e PS apenas leem | QA movendo tasks para "done" sem critérios validados |
-| MCP-05 `azure-devops` | `get_work_item`, `list_work_items` | Todos os papéis | `Work Items: Read` no projeto `NovaTech-Assistant` | Toda a equipe precisa de visibilidade do board | — |
-| MCP-05 `azure-devops` | `get_build_status` | Tech Lead, Desenvolvedor, QA | `Build: Read` no projeto `NovaTech-Assistant` | PS e DM não precisam de detalhes de build para suas tarefas | Baixo; negado por desnecessidade |
-| MCP-05 `azure-devops` | `delete_work_item`, `manage_iterations`, `project_admin` | **Nenhum** | **NEGADO** | Ações administrativas e destrutivas nunca são delegadas a agentes | Perda de rastreabilidade de specs; alterações no board afetando todos os membros do time |
+### 2.1 `filesystem`
 
-### Resumo de negações por princípio
+| Server | Tool / Resource / Prompt exposto | Pasta/escopo concedido | Acesso | Papel autorizado | Justificativa de least privilege | Risco principal se superprivilegiado |
+|--------|----------------------------------|------------------------|:------:|------------------|----------------------------------|--------------------------------------|
+| filesystem | **Tools de leitura**: `read_file`, `read_multiple_files`, `list_directory`, `directory_tree`, `search_files`, `get_file_info` | `./src`, `./specs`, `./skills` | RW (parte leitura) | Copilot, Claude Code (RW); Claude Chat (RO) | Agente precisa ler o código/spec/skill existente para gerar saída consistente com o projeto | Se a raiz incluísse pasta com segredo, leitura vazaria credencial para o contexto/log |
+| filesystem | **Tools de escrita**: `write_file`, `edit_file`, `create_directory`, `move_file` | `./src`, `./specs`, `./skills` | RW | Copilot, Claude Code | Geração/refatoração de código exige escrever exatamente nesses caminhos | Escrita em raiz ampla (`.`) permitiria alterar `infra`, `package.json` ou `.env` sem revisão |
+| filesystem | Tools de leitura (mesmas acima) | `./docs/novatech`, `./data/retrieval-corpus` | **RO** | Todos os agentes | Fonte de negócio e corpus de RAG são **consultados**, nunca editados (ADR-0003) | — (acesso já é o mínimo: só leitura) |
+| filesystem | Tools de escrita (`write_file`, `edit_file`, `create_directory`, `move_file`) | `./docs/novatech`, `./data/retrieval-corpus` | **DENY** | Nenhum | Negócio é imutável pelo agente; o server não bloqueia por si → enforce via OS perms + write-probe | Agente reescreve política/SLA/chunk → resposta errada com aparência oficial e fonte adulterada |
+| filesystem | Qualquer tool | `./docs/adr`, `./docs/runbooks`, `./docs/onboarding.md` | **DENY** | Nenhum | Não participam do loop de geração desta fase; deny-by-default | Ampliar para `./docs` inteiro traria conteúdo desnecessário e ruído de contexto |
+| filesystem | Qualquer tool | raiz `.`, `.env`/`*.key`/`*.pem`, `.git/`, `node_modules/`, `./infra` | **DENY (não mapeado)** | Nenhum | Nenhuma necessidade do agente justifica; deny-by-default | Vazamento de segredo, edição de IaC de alto impacto, ruído massivo de `node_modules` |
 
-| Categoria de negação | Exemplos | Razão |
-|----------------------|----------|-------|
-| **Ações destrutivas** | `delete_branch`, `delete_index`, `delete_work_item` | Irreversíveis; requerem decisão humana explícita |
-| **Acesso a produção** | `gpt-4o-prod`, qualquer resource de prod | Isolar dev de prod é requisito absoluto |
-| **Escrita em sistemas de clientes** | `create_page` no Confluence | Agentes não poluem sistemas de registro do cliente |
-| **Escopos além do projeto** | outros repos GitHub, outros espaços Confluence | Contexto do agente é estritamente `db1/novatech-assistant` |
-| **Por papel inadequado** | PS criando PRs, QA criando work items | Fluxo SDD define responsabilidades; agente não contorna |
+### 2.2 `git`
+
+| Server | Tool / Resource / Prompt exposto | Pasta/escopo concedido | Acesso | Papel autorizado | Justificativa de least privilege | Risco principal se superprivilegiado |
+|--------|----------------------------------|------------------------|:------:|------------------|----------------------------------|--------------------------------------|
+| git | **Tools de leitura**: `git_status`, `git_log`, `git_diff`, `git_diff_staged`, `git_show`, `git_branch` | repositório local (`--repository .`) | **RO** | Copilot, Claude Code, Claude Chat | Contexto de "o que mudou e por quê" melhora a geração; leitura é suficiente | — (já é o mínimo) |
+| git | **Tools de escrita**: `git_add`, `git_commit`, `git_create_branch`, `git_reset` | repositório local | **DENY** | Nenhum | Commit/branch é decisão humana revisada — passa pelo validation gate de PR (mesmo local) | Agente comita/branqueia sem revisão e burla o gate de PR |
+| git | `--repository` apontando para outro repo | qualquer repo fora do projeto | **DENY** | Nenhum | Só o repo do projeto é relevante | Exposição de histórico/segredos de outro repositório |
+
+### 2.3 `memory`
+
+| Server | Tool / Resource / Prompt exposto | Pasta/escopo concedido | Acesso | Papel autorizado | Justificativa de least privilege | Risco principal se superprivilegiado |
+|--------|----------------------------------|------------------------|:------:|------------------|----------------------------------|--------------------------------------|
+| memory | `create_entities`, `create_relations`, `add_observations`, `read_graph`, `search_nodes`, `open_nodes` | grafo persistente do server (store próprio) | **RW** | Todos os agentes | Persistir decisões de arquitetura e linguagem ubíqua exige escrita; conteúdo é metadado de baixo risco | Grafo vira lixeira / armazena segredo ou PII de cliente NovaTech |
+| memory | `delete_entities`, `delete_relations`, `delete_observations` | grafo persistente | **RW (restrito)** | Claude Code, Tech Lead | Manutenção/limpeza do grafo é ocasional e de maior impacto | Perda de histórico de decisão se qualquer agente apagar livremente |
+| memory | Qualquer conteúdo sensível | grafo persistente | **DENY de conteúdo** | Nenhum | Grafo é só decisão/linguagem; segredo/PII proibido por política (§2.3 da arquitetura) | Persistência de dado sensível em store não cifrado |
+
+### 2.4 `everything`
+
+| Server | Tool / Resource / Prompt exposto | Pasta/escopo concedido | Acesso | Papel autorizado | Justificativa de least privilege | Risco principal se superprivilegiado |
+|--------|----------------------------------|------------------------|:------:|------------------|----------------------------------|--------------------------------------|
+| everything | Tools/Resources/Prompts de demonstração (`echo`, `add`, `longRunningOperation`, `sampleLLM`, prompts de exemplo) | **nenhum dado do projeto** | **RO (aprendizado)** | Claude Code, Claude Chat | Serve só para o time aprender as primitivas MCP (tools/resources/prompts) | Se receber dados do projeto, vira canal de exfiltração via tool de demo |
+| everything | Qualquer acesso a pasta do projeto | `./src`, `./docs`, `./data`, etc. | **DENY** | Nenhum | Aprendizado não precisa de nada do repositório | Dado de negócio trafegando por server de demonstração |
+
+---
+
+## 3. Regras de leitura da matriz (prescritivas)
+
+- **DEVE** existir uma linha explícita para cada par (server, escopo) que um agente usa. O que não está na matriz está **negado**.
+- `docs/novatech` e `data/retrieval-corpus` **NÃO DEVEM** aparecer com acesso de escrita para nenhum papel — RO sempre.
+- Nenhum escopo de pasta-pai (`.`, `./docs`, `./data`) **DEVE** ser concedido; só subpastas exatas com justificativa.
+- Toda linha `DENY` é **auditável**: o health check (Prompts 3–4) **DEVE** falhar se um escopo negado aparecer no `.mcp/mcp.json` ou se a write-probe nas pastas RO suceder.
+- Mudança nesta matriz **DEVE** ocorrer no mesmo PR que altera o `.mcp/mcp.json` (matriz = contrato; ver `arquitetura-mcp.md` §7).
+
+---
+
+## 4. Critérios verificáveis
+
+- [ ] O diagrama mostra os 3 agentes, os 4 servers e o acesso **por pasta** (RW/RO/DENY).
+- [ ] Há fronteira de segurança explícita em volta de `docs/novatech` + `data/retrieval-corpus` (RO) **e** em volta da zona de segredos (`.env`, `.git`, etc.).
+- [ ] A matriz tem as 7 colunas exigidas e cada linha de RW/RO traz justificativa de least privilege.
+- [ ] Cada linha tem o "risco se superprivilegiado" preenchido (ou "—" quando já é o mínimo).
+- [ ] Existem linhas `DENY` explícitas (deny-by-default visível e auditável).
+- [ ] Nenhum escopo amplo (pasta-pai) concedido sem justificativa — e nenhum foi concedido.

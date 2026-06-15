@@ -1,0 +1,22 @@
+{
+  "name": "novatech-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint .",
+    "build": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0",
+    "zod": "^3.23.0"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.16.0",
+    "pino": "^10.3.1"
+  }
+}

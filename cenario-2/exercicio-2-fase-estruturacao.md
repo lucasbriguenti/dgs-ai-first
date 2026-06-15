@@ -30,10 +30,10 @@ O projeto NovaTech foi aprovado. O discovery está concluído e a fase de entend
 - **Estratégia de contexto:** Context budget de ~4K tokens para system prompt + ~8K para chunks (5 chunks de ~1.500 tokens) + pergunta + histórico limitado a 3 turnos (ADR-0002).
 - **Documentos contraditórios:** Metadado de vigência no pipeline; prompt instrui o modelo a priorizar versão mais recente; documentos obsoletos marcados, não excluídos (ADR-0003).
 - **Integração:** Microsoft Teams (bot) + painel web interno.
-- **Base documental:** 847 documentos válidos, 63 descartados por obsolescência, 12 com contradições pendentes de resolução pelo Compliance da NovaTech.
-- **Arquitetura:** 3 componentes — (1) pipeline de ingestão, (2) API do assistente (Azure Functions + Azure AI Search + Azure OpenAI), (3) interface no Teams via Bot Framework.
+- **Base documental:** das ~1.250 fontes brutas do cenário 1 (SharePoint, Confluence e planilhas), após deduplicação e limpeza no discovery restaram 847 documentos válidos consolidados (12 deles com contradições pendentes de resolução pelo Compliance da NovaTech); 63 foram descartados por obsolescência e ~340 eliminados como duplicatas ou redundâncias.
+- **Arquitetura:** 4 componentes — (1) pipeline de ingestão, (2) API do assistente (Azure Functions + Azure AI Search + Azure OpenAI), (3) interface no Teams via Bot Framework, e (4) painel web interno (dashboard de métricas e histórico).
 - **Stack:** TypeScript (backend e bot), React (painel web), Bicep para infraestrutura como código.
-- **Repositório:** `db1/novatech-assistant` no GitHub da DB1.
+- **Repositório:** `novatech-assistant` (o prefixo `db1/` é narrativo). Nesta fase é trabalhado como repositório Git **local** — ver Anexo D (Starter Repo); não há remoto nem GitHub necessários.
 - **Time:** 1 Tech Lead, 2 Desenvolvedores (1 pleno, 1 sênior), 1 QA, 1 Product Specialist, 1 Delivery Manager.
 
 ### O desafio desta fase
@@ -250,7 +250,17 @@ Usando o **Claude** e referenciando o **Anexo C** para caminhos corretos, escrev
 **Inputs fornecidos:**
 - O cenário completo.
 - A documentação da NovaTech (ver **Anexo A**) e a estrutura do repositório (ver **Anexo C**).
-- A estrutura do AGENTS.md (mesma do DM 2.3).
+- A estrutura do AGENTS.md proposta pelo Tech Lead:
+  ```
+  # AGENTS.md — NovaTech Assistant
+  ## Project Overview
+  ## Tech Stack & Architecture
+  ## Coding Standards (Tech Lead)
+  ## Product Rules & Guardrails (Product Specialist)
+  ## Testing Standards (QA)
+  ## Project Management Rules (Delivery Manager)
+  ## Build & Deploy
+  ```
 - Guardrails formalizados simulados (output do exercício 2.2 — fornecidos para que este exercício seja autossuficiente):
   ```
   DEVE:
@@ -292,39 +302,39 @@ Usando o **Claude** e referenciando os Anexos A e C, escreva a seção **"Produc
 
 ### DESENVOLVEDOR
 
-#### Exercício 2.1 — Configuração de MCP servers para o projeto
+#### Exercício 2.1 — Configuração e uso real de MCP servers no projeto
 
-**Contexto:** Antes de começar a codar, você precisa configurar os MCP servers que vão permitir aos agentes de IA acessar o repositório, a documentação do Azure e as APIs do projeto.
+**Contexto:** Antes de codar, você vai configurar e **efetivamente rodar** os MCP servers que dão aos agentes de IA acesso ao repositório, à documentação da NovaTech e ao corpus de busca. Tudo local e gratuito — nenhum serviço pago ou externo.
 
 **Ferramentas a utilizar:** Claude (chat) + GitHub Copilot
 
 **Inputs fornecidos:**
 - O cenário completo.
-- A estrutura do repositório e o exemplo mínimo de configuração MCP (ver **Anexo C**, seção "Exemplo mínimo de configuração MCP").
-- A lista de ferramentas e serviços que o time usa:
-  - GitHub (`db1/novatech-assistant`) — repositório do projeto.
-  - Azure AI Search — base vetorial de documentos.
-  - Azure OpenAI — modelo de geração.
-  - Azure DevOps — boards e tracking.
-  - Confluence da NovaTech — documentação de negócio (read-only).
-- Conceito de MCP: *"MCP (Model Context Protocol) é o protocolo que padroniza como modelos de IA se conectam a ferramentas externas. Um MCP server expõe Tools (ações que o modelo pode executar), Resources (dados read-only que o modelo pode consultar), e Prompts (templates reutilizáveis)."*
+- O **Anexo C** (estrutura do repositório e exemplo de `.mcp/mcp.json`) e o **Anexo D — Starter Repo**, que já traz a árvore, o `git init` e as pastas `docs/novatech/` (documentos do Anexo A) e `data/retrieval-corpus/` (chunks do Anexo B).
+- A lista de necessidades do projeto que precisam de acesso via MCP:
+  - Código, specs e skills do repositório (ler e escrever).
+  - Documentação de negócio da NovaTech (ler — está em `docs/novatech/`).
+  - Corpus de chunks para "recuperação" (ler — está em `data/retrieval-corpus/`).
+  - Histórico/branches do repositório.
+  - Memória persistente de decisões e linguagem ubíqua do projeto.
+- Conceito de MCP: *"MCP (Model Context Protocol) padroniza como modelos de IA se conectam a ferramentas externas. Um MCP server expõe Tools (ações), Resources (dados read-only) e Prompts (templates). Servers podem rodar localmente — não precisam ser serviços na nuvem."*
 
 **Tarefa:**
-1. Usando o **Claude**, mapeie quais MCP servers o projeto precisa. Para cada server, defina: o que expõe (tools, resources, prompts), quem consome (quais papéis/ferramentas), e se já existe como server público ou precisaria ser construído.
+1. Usando o **Claude**, mapeie cada necessidade do projeto para um *reference server* gratuito e local (filesystem, git, memory, everything). Para cada um: o que ele expõe (tools/resources/prompts), quem consome, e qual pasta/escopo ele recebe.
 
-2. Para cada MCP server, defina as permissões mínimas necessárias (princípio de least privilege).
+2. Escreva o `.mcp/mcp.json` do projeto (preenchendo o scaffold vazio do starter repo). Aplique **least privilege** de forma concreta: o `filesystem` server deve receber só as pastas necessárias, e as fontes de leitura (`docs/novatech/`, `data/retrieval-corpus/`) devem ser tratadas como **read-only**; justifique por que cada escopo é o mínimo suficiente.
 
-3. Usando o **GitHub Copilot**, crie o arquivo de configuração MCP (`.mcp.json` ou equivalente) para o projeto, listando os servers mapeados com suas configurações.
+3. **Suba os servers e comprove o uso:** abra o agente (Claude/Copilot) com os servers ativos e demonstre, com evidência, que ele consegue (a) listar e ler um documento de `docs/novatech/`, (b) recuperar um chunk relevante de `data/retrieval-corpus/` para uma pergunta do domínio (use o mapa de cobertura do Anexo B como gabarito), e (c) ler o histórico do repositório via `git`.
 
-4. Identifique ao menos 2 riscos de segurança no uso de MCP servers neste projeto e proponha mitigações.
+4. Identifique ao menos 2 riscos de segurança no uso de MCP servers **neste contexto local** e proponha mitigações (ex.: um `filesystem` server com escopo amplo demais expõe `.env`/segredos; um server com escrita habilitada permite que o agente altere arquivos sem revisão).
 
-**Entregável:** O mapeamento de MCP servers, o arquivo de configuração gerado com o Copilot, e a análise de riscos de segurança.
+**Entregável:** O mapeamento, o `.mcp/mcp.json` final, a **evidência de execução** (prints/exports mostrando o agente lendo doc, recuperando chunk e lendo o git), e a análise de riscos.
 
 **Critérios de avaliação:**
-- A arquitetura MCP é pragmática (usa servers existentes onde possível, customiza só onde necessário).
-- As permissões seguem princípio de least privilege.
-- Os riscos de segurança são específicos ao contexto (ex: "o MCP server do Confluence expõe documentação do cliente — se um agente local do dev acessar via MCP e enviar a um modelo cloud, dados sensíveis podem vazar").
-- O arquivo de configuração é sintaticamente válido e demonstra uso correto do Copilot.
+- A configuração usa apenas servers locais e gratuitos (nenhum serviço pago/externo).
+- O least privilege é concreto: escopos mínimos, fontes de negócio em read-only, justificativa por server.
+- Há **evidência real de uso** (não só o arquivo de config): o agente leu documentação e recuperou chunk via MCP.
+- Os riscos são específicos ao setup local (exposição de segredos por escopo amplo, escrita sem gate), com mitigação acionável.
 
 ---
 
@@ -347,7 +357,7 @@ Usando o **Claude** e referenciando os Anexos A e C, escreva a seção **"Produc
   2. Converte pergunta em embedding via Azure OpenAI
   3. Busca top-5 chunks no Azure AI Search
   4. Monta prompt com chunks + system prompt + pergunta
-     (respeitando context budget: ~2K system + ~8K chunks + pergunta)
+     (respeitando context budget: ~4K system + ~8K chunks + pergunta)
   5. Envia ao GPT-4o e retorna resposta com source_document
   
   ## Technical Decisions
@@ -438,7 +448,7 @@ Usando o **Claude** e referenciando os Anexos A e C, escreva a seção **"Produc
   - Vitest para testes.
   - pino para logging (nunca console.log).
   - Conventional Commits para mensagens de commit.
-  - Branch strategy: feature branches com PR obrigatório para main.
+  - Branch strategy: feature branches **locais**. Como esta fase não usa remoto, "abrir PR" significa criar a branch e escrever a descrição do PR como um arquivo markdown (ex.: `docs/pull-requests/PR-NNNN.md`) com objetivo, mudanças e checklist de validation gates; a revisão é simulada localmente.
   - Context budget: ~4K tokens system prompt + ~8K chunks por query (ADR-0002).
   - Documentos contraditórios: metadado de vigência, priorizar mais recente (ADR-0003).
 - A especificação do AGENTS.md: *"O AGENTS.md é a constitution do projeto: contém decisões duráveis que todo agente e toda spec devem respeitar. Funciona como contrato entre humanos e agentes."*
@@ -461,35 +471,42 @@ Usando o **Claude** e referenciando os Anexos A e C, escreva a seção **"Produc
 
 ---
 
-#### Exercício 2.2 — Arquitetura de MCP para o projeto
+#### Exercício 2.2 — Arquitetura de MCP do projeto (servers locais)
 
-**Contexto:** Você precisa definir a arquitetura de MCP do projeto: quais servers, quais permissões, como monitorar, e como o time é notificado de mudanças.
+**Contexto:** Você precisa definir a arquitetura de MCP do projeto: quais servers locais, com quais escopos/permissões, como monitorá-los e como o time é avisado de mudanças. Como todos os servers rodam localmente, "monitorar" e "health check" são exercícios **executáveis de verdade**.
 
 **Ferramentas a utilizar:** Claude (chat) + GitHub Copilot
 
 **Inputs fornecidos:**
-- O cenário completo.
-- O mapeamento de MCP do desenvolvedor (simulado): *"Servers identificados: (1) GitHub — read code, create PR. (2) Azure AI Search — read index, query. (3) Azure OpenAI — completion API. (4) Confluence NovaTech — read pages. (5) Azure DevOps — read/write work items."*
-- Conceito de MCP architecture: *"MCP servers devem ser gerenciados como infraestrutura: versionados, monitorados, com permissões mínimas. O Tech Lead decide quais servers são autorizados e quais tools cada server expõe."*
+- O cenário completo, o **Anexo C** e o **Anexo D — Starter Repo**.
+- O mapeamento de MCP do desenvolvedor (simulado — output do Dev 2.1, fornecido para autossuficiência):
+  ```
+  Servers locais e gratuitos:
+  (1) filesystem  -> ./src ./specs ./skills (rw) + ./docs/novatech ./data/retrieval-corpus (read-only)
+  (2) git         -> repositório local (histórico, diff, branches)
+  (3) memory      -> grafo persistente de decisões e linguagem ubíqua
+  (4) everything  -> aprendizado das primitivas de MCP
+  ```
+- Conceito de MCP architecture: *"MCP servers devem ser gerenciados como infraestrutura: versionados, com escopo/permissões mínimas, e observáveis. O Tech Lead decide quais servers são autorizados e quais tools cada um expõe."*
 
 **Tarefa:**
 1. Usando o **Claude**, produza um documento de arquitetura de MCP que cubra:
-   - Diagrama dos servers e suas conexões com os agentes (quem consome o quê).
-   - Política de aprovação: como um novo MCP server é adicionado ao projeto.
-   - Monitoramento: como saber se um MCP server parou de funcionar ou retorna dados incorretos.
-   - Versionamento: como garantir que uma mudança no MCP server não quebre agentes existentes.
+   - Diagrama dos servers e suas conexões com os agentes (quem consome o quê, com qual escopo).
+   - Política de aprovação: como um novo server local é adicionado ao `.mcp/mcp.json` do projeto (quem revisa escopo e permissões).
+   - Monitoramento: como saber se um server parou de responder ou perdeu acesso a uma pasta.
+   - Versionamento: como garantir que mudar o escopo de um server não quebre fluxos existentes.
 
-2. Usando o **GitHub Copilot**, crie um script de health check que verifica se todos os MCP servers configurados estão respondendo.
+2. Usando o **GitHub Copilot**, crie um **script de health check** que sobe/consulta cada server configurado no `.mcp/mcp.json` e verifica que ele responde (ex.: lista as tools/resources expostas; confirma que o `filesystem` enxerga `docs/novatech/`). Como os servers são locais, o script **roda de fato** — inclua a saída de uma execução.
 
-3. Defina o que acontece quando um MCP server fica indisponível durante o desenvolvimento.
+3. Defina o que acontece quando um server fica indisponível durante o desenvolvimento (ex.: `filesystem` sem a pasta de docs -> o agente deve degradar com aviso, não inventar).
 
-**Entregável:** O documento de arquitetura, o script de health check gerado com o Copilot, e o plano de contingência.
+**Entregável:** O documento de arquitetura, o script de health check **com saída de execução real**, e o plano de contingência.
 
 **Critérios de avaliação:**
-- A arquitetura trata MCP servers como infraestrutura gerenciada (não como configuração ad-hoc).
-- A política de aprovação equilibra agilidade com segurança.
-- O script de health check é funcional e demonstra uso efetivo do Copilot.
-- O plano de contingência é realista (agente degradado é melhor que agente quebrado).
+- A arquitetura trata os servers locais como infraestrutura gerenciada (escopo, permissões, versionamento), não config ad-hoc.
+- A política de aprovação equilibra agilidade com segurança (revisão de escopo/least privilege).
+- O health check é **funcional e foi executado** (saída real contra servers locais), não apenas conceitual.
+- O plano de contingência é realista (agente degradado com aviso é melhor que agente que alucina).
 
 ---
 

@@ -16,7 +16,7 @@
 
 | 1 | 2 | 3 |
 |---|---|---|
-| Conceitos ausentes ou incorretos. Ex: confunde MCP tools com resources, ou escreve AGENTS.md como documento narrativo. | Conceitos corretos mas genéricos — não reflete o contexto NovaTech. | Conceitos corretos, específicos ao projeto, e com nuance. Ex: define permissões MCP de least privilege considerando que Confluence tem dados do cliente. |
+| Conceitos ausentes ou incorretos. Ex: confunde MCP tools com resources, ou escreve AGENTS.md como documento narrativo. | Conceitos corretos mas genéricos — não reflete o contexto NovaTech. | Conceitos corretos, específicos ao projeto, e com nuance. Ex: define permissões MCP de least privilege — filesystem server com escopo mínimo de pastas e as fontes de negócio (`docs/novatech/`) em read-only. |
 
 ### D2 — Uso de Ferramentas
 
@@ -62,6 +62,7 @@
 | Situação | Consequência |
 |----------|-------------|
 | Exercício de teste com Copilot sem evidência real de geração/avaliação | D2 ≤ 1 |
+| Dev 2.1 (MCP) ou TL 2.2 (health check) sem evidência de execução real dos servers locais | D2 ≤ 1 |
 | Iteração pedida mas v1 ≈ v2 (mudanças cosméticas) | D2 ≤ 1 |
 | AGENTS.md ou skill narrativo em vez de prescritivo | D3 ≤ 1 |
 | Evidência de uso de ferramenta ausente quando exigida | D2 ≤ 2 |

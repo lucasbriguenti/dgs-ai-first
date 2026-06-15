@@ -1,381 +1,422 @@
-# Arquitetura de MCP — NovaTech Assistant
+# Arquitetura de MCP — NovaTech Assistant (servers locais)
 
-> **Papel:** Tech Lead  
-> **Exercício:** 2.2 — Arquitetura de MCP para o projeto  
-> **Repositório fictício:** `db1/novatech-assistant`  
-> **Versão do documento:** 1.0  
-> **Data:** 2026-06-09
+**Projeto:** NovaTech Assistant
+**Papel:** Tech Lead
+**Ferramenta de autoria:** Claude (chat)
+**Data:** 2026-06-15
+**Escopo:** Exercício 2.2 — Prompt 1
+**Documento vivo — versão:** 1.0 · versionado em `.mcp/` no Git
 
----
-
-## 1. Objetivo e Escopo
-
-### Objetivo
-
-Este documento define a arquitetura de MCP (Model Context Protocol) do projeto NovaTech Assistant. MCP servers são tratados como **infraestrutura gerenciada** — não como configuração ad-hoc — e por isso passam pelos mesmos controles de versionamento, monitoramento e aprovação que qualquer outro componente de infraestrutura do projeto.
-
-### Escopo
-
-- Cobre todos os MCP servers autorizados para uso no repositório `db1/novatech-assistant`.
-- Define quem pode consumir cada server, com que permissões, e sob quais condições.
-- Estabelece o processo de aprovação para adição de novos servers.
-- Define como o time responde à indisponibilidade de um server.
-
-### O que está fora do escopo
-
-- Configurações locais de MCP de cada desenvolvedor fora do contexto do projeto.
-- MCP servers de outros projetos da DB1 (não há compartilhamento de configuração entre repositórios).
-
-### Critério de aderência verificável
-
-O arquivo `.mcp/mcp.json` no repositório DEVE listar apenas os servers definidos neste documento. Qualquer server presente no arquivo que não esteja neste documento constitui violação de política.
+> **Regra de leitura:** este documento é prescritivo. `DEVE` = obrigatório e verificável. `NÃO DEVE` = proibido, bloqueia merge. `QUANDO FALHAR` = comportamento esperado em degradação. Cada seção termina com **Critérios verificáveis** — checks objetivos que dois revisores avaliariam igual.
 
 ---
 
-## 2. Inventário de MCP Servers
+## 1. Objetivo e escopo
 
-Os 5 servers autorizados para o projeto são:
+### 1.1 Objetivo
 
-| ID | Nome | Tipo | Acesso | Finalidade |
-|----|------|------|--------|------------|
-| MCP-01 | `github` | Público (`@modelcontextprotocol/server-github`) | RO + RW controlado | Leitura de código, criação de PRs, revisão de diffs |
-| MCP-02 | `azure-ai-search` | Customizado (a construir) | RO | Consulta ao índice vetorial de documentos NovaTech |
-| MCP-03 | `azure-openai` | Customizado (a construir) | RW | Chamadas à Completion API do GPT-4o |
-| MCP-04 | `confluence-novatech` | Customizado (a construir) | RO estrito | Leitura de páginas da documentação de negócio da NovaTech |
-| MCP-05 | `azure-devops` | Público (`@modelcontextprotocol/server-azure-devops`) | RW controlado | Leitura e escrita de work items no board do projeto |
+Definir a arquitetura de MCP (Model Context Protocol) do NovaTech Assistant tratando os servers como **infraestrutura gerenciada** — versionada, com permissões mínimas e observável — e **não** como configuração ad-hoc por máquina de desenvolvedor.
 
-### Critério de aderência verificável
+O MCP é a camada padronizada pela qual os agentes (Copilot, Claude Code, Claude Chat) acessam o repositório, a documentação de negócio da NovaTech e o corpus de busca. Cada server expõe três primitivas: **Tools** (ações), **Resources** (dados read-only) e **Prompts** (templates). Esta arquitetura decide quais servers são autorizados, o que cada um expõe e quem consome o quê.
 
-- Cada server DEVE ter um ID único no formato `MCP-NN`.
-- Cada server DEVE ter seu tipo (público ou customizado) documentado.
-- Servers customizados DEVEM ter seu código-fonte sob `/infra/mcp-servers/` no repositório.
+### 1.2 Por que tudo é local e gratuito
 
----
+- **Custo e dependência externa:** Esta fase é de estruturação. Servers locais (*reference servers* rodando via `npx`/`uvx`) eliminam custo recorrente e a dependência de credenciais de serviços pagos. O time não fica bloqueado por billing, rate limit ou indisponibilidade de SaaS.
+- **Superfície de ataque reduzida:** Nenhum dado de negócio da NovaTech sai da máquina. Sem tráfego para nuvem, sem segredo de API de terceiros, sem risco de exfiltração via integração externa.
+- **Health check executável de verdade:** Como os processos sobem localmente, "monitorar" e "health check" são operações reais (subir o processo, fazer handshake, listar tools), não diagramas teóricos.
 
-## 3. Matriz de Consumo por Agente/Papel
+**NÃO DEVE** ser usado nesta fase como MCP server: GitHub, Azure AI Search, Azure OpenAI, Confluence, Azure DevOps ou qualquer serviço externo/pago. Esses são consumidos pela aplicação em runtime (camada de produto), **não** pela camada de ferramentas dos agentes nesta fase.
 
-A tabela abaixo define quem consome cada server e em qual contexto. "Agente" refere-se à ferramenta de IA que realiza a chamada MCP; "papel" refere-se ao humano que opera a ferramenta.
+### 1.3 Servers autorizados (escopo fechado)
 
-| MCP Server | Agente | Papel humano | Contexto de uso |
-|------------|--------|--------------|-----------------|
-| MCP-01 `github` | Claude Code, GitHub Copilot | Tech Lead, Desenvolvedor | Leitura de código para geração de artefatos; criação de PRs a partir de specs |
-| MCP-01 `github` | Claude Chat | Tech Lead | Revisão de PRs, leitura de histórico de commits |
-| MCP-02 `azure-ai-search` | Claude Code | Desenvolvedor | Validação de queries durante desenvolvimento de `src/services/search.ts` |
-| MCP-02 `azure-ai-search` | Claude Chat | Tech Lead, QA | Verificação de cobertura do índice durante review e testes |
-| MCP-03 `azure-openai` | Claude Code | Desenvolvedor | Testes de integração do `src/services/completion.ts` |
-| MCP-03 `azure-openai` | Claude Chat | Tech Lead, QA | Validação de outputs do assistente com dados reais |
-| MCP-04 `confluence-novatech` | Claude Chat, Claude Code | Todos os papéis | Leitura de documentação de negócio para gerar artefatos coerentes com domínio |
-| MCP-05 `azure-devops` | Claude Chat, Claude Code | Tech Lead, Delivery Manager | Criação e atualização de work items a partir de specs e tasks geradas |
+| # | Server | Pacote/binário | Papel na arquitetura |
+|---|--------|----------------|----------------------|
+| 1 | `filesystem` | `@modelcontextprotocol/server-filesystem` (npx) | Acesso a código (rw) e fontes de negócio (ro) |
+| 2 | `git` | `mcp-server-git` (uvx) | Histórico, diff e branches do repo local — leitura |
+| 3 | `memory` | `@modelcontextprotocol/server-memory` (npx) | Grafo persistente de decisões e linguagem ubíqua |
+| 4 | `everything` | `@modelcontextprotocol/server-everything` (npx) | Exploração das primitivas de MCP (aprendizado) |
 
-### Regras de consumo
-
-- Claude Code DEVE consumir MCP-03 somente com chave de API de ambiente `dev` — nunca produção.
-- Claude Chat NÃO DEVE ter acesso de escrita ao MCP-02 (índice é imutável via agente).
-- MCP-04 NÃO DEVE ser consumido por automações de CI — somente por sessões interativas de agentes.
-
-### Critério de aderência verificável
-
-A configuração `.mcp/mcp.json` DEVE definir perfis por agente (`copilot`, `claude-code`, `claude-chat`) com escopos distintos para cada server.
+**Critérios verificáveis (§1):**
+- [ ] O `.mcp/mcp.json` contém **exatamente** estes 4 servers — nenhum a mais.
+- [ ] Nenhum server aponta para endpoint de rede externo (todos `command` = `npx`/`uvx` local).
+- [ ] O documento está versionado no Git (não é config de máquina local não-rastreada).
 
 ---
 
-## 4. Permissões Mínimas por Server
+## 2. Inventário dos MCP servers (Tools / Resources / Prompts)
 
-### MCP-01 — GitHub
+### 2.1 `filesystem`
 
-| Escopo OAuth | Justificativa |
-|-------------|---------------|
-| `repo:read` | Leitura de código e histórico |
-| `pull_requests:write` | Criação de PRs a partir de specs |
-| `issues:read` | Leitura de issues para contexto |
+| Primitiva | O que expõe |
+|-----------|-------------|
+| **Tools** | `read_file`, `read_multiple_files`, `list_directory`, `directory_tree`, `search_files`, `get_file_info` (leitura); `write_file`, `edit_file`, `create_directory`, `move_file` (escrita) |
+| **Resources** | Árvore de arquivos das raízes permitidas |
+| **Prompts** | — |
 
-**NÃO DEVE ter:** `admin:repo`, `delete_repo`, `packages:write`, acesso a outros repositórios além de `db1/novatech-assistant`.
+> **Limitação técnica crítica (honesta):** o reference server `@modelcontextprotocol/server-filesystem` expõe **o conjunto completo de tools** (leitura **e** escrita) sobre **toda** raiz passada em `args`. Ele **não** tem flag de "read-only por pasta". Logo, a distinção RO/RW de `docs/novatech` e `data/retrieval-corpus` **NÃO é garantida pela config do server** — precisa de defesa em profundidade (ver §4.1). Esta é a decisão de arquitetura mais importante deste documento.
 
-### MCP-02 — Azure AI Search
+### 2.2 `git`
 
-| Permissão | Escopo |
-|-----------|--------|
-| `Search Index Reader` (RBAC) | Consulta ao índice `novatech-docs` |
+| Primitiva | O que expõe |
+|-----------|-------------|
+| **Tools** | `git_status`, `git_log`, `git_diff`, `git_diff_unstaged`, `git_diff_staged`, `git_show`, `git_branch` (leitura). Tools de escrita (`git_add`, `git_commit`, `git_create_branch`) **NÃO DEVEM** ser habilitadas nesta fase. |
+| **Resources** | Histórico de commits do repositório local |
+| **Prompts** | — |
 
-**NÃO DEVE ter:** `Search Index Contributor`, `Search Service Contributor`. Agente não pode reindexar ou modificar o índice.
+### 2.3 `memory`
 
-### MCP-03 — Azure OpenAI
+| Primitiva | O que expõe |
+|-----------|-------------|
+| **Tools** | `create_entities`, `create_relations`, `add_observations`, `read_graph`, `search_nodes`, `open_nodes`, `delete_*` |
+| **Resources** | Grafo de conhecimento persistido (decisões arquiteturais, linguagem ubíqua) |
+| **Prompts** | — |
 
-| Permissão | Escopo |
-|-----------|--------|
-| `Cognitive Services OpenAI User` (RBAC) | Chamadas à deployment `gpt-4o-dev` |
+**NÃO DEVE** conter dados sensíveis (segredos, PII de clientes NovaTech). O grafo é metadado de decisão, não cópia de documento de negócio.
 
-**NÃO DEVE ter:** acesso à deployment de produção `gpt-4o-prod`. O MCP server DEVE resolver a deployment via variável de ambiente `AZURE_OPENAI_DEPLOYMENT`, configurada por ambiente.
+### 2.4 `everything`
 
-### MCP-04 — Confluence NovaTech
+| Primitiva | O que expõe |
+|-----------|-------------|
+| **Tools** | Tools de demonstração (`echo`, `add`, `longRunningOperation`, `sampleLLM`, etc.) |
+| **Resources** | Resources de exemplo |
+| **Prompts** | Prompts de exemplo |
 
-| Permissão | Escopo |
-|-----------|--------|
-| `space:read` no espaço `NOVATECH-DOCS` | Leitura de páginas |
+Server **exclusivamente de aprendizado** das primitivas MCP. **NÃO DEVE** receber dados do projeto. É candidato a remoção quando o time dominar MCP (ver §5 — critério de desativação).
 
-**NÃO DEVE ter:** permissões de escrita em nenhum espaço do Confluence. A service account usada DEVE ser exclusiva deste projeto (não compartilhada com outros sistemas).
-
-### MCP-05 — Azure DevOps
-
-| Permissão | Escopo |
-|-----------|--------|
-| `Work Items: Read & Write` no projeto `NovaTech-Assistant` | Criação e atualização de tasks |
-| `Build: Read` | Leitura de status de pipelines |
-
-**NÃO DEVE ter:** `Project Administrator`, permissões em outros projetos Azure DevOps, acesso a pipelines de produção.
-
-### Critério de aderência verificável
-
-Revisão trimestral de permissões concedidas nas respectivas plataformas contra as permissões documentadas aqui. Qualquer permissão adicional detectada DEVE ser removida e reportada como incidente de segurança menor.
+**Critérios verificáveis (§2):**
+- [ ] Para cada server, as tools de escrita estão explicitamente listadas como habilitadas ou proibidas.
+- [ ] `git` está documentado como leitura; tools de escrita marcadas como NÃO DEVE.
+- [ ] `everything` está marcado como sem dados do projeto.
 
 ---
 
-## 5. Política de Aprovação para Novo MCP Server
+## 3. Matriz de consumo por agente/papel
 
-### Princípio
+Quem consome o quê, com qual acesso. RO = somente leitura efetiva (do ponto de vista do agente); RW = leitura e escrita.
 
-Adicionar um MCP server ao projeto é equivalente a adicionar uma dependência de infraestrutura. O processo equilibra velocidade (time pequeno, iteração rápida) com segurança (não expor dados sensíveis, não conceder acesso desnecessário).
+| Agente | `filesystem` (src/specs/skills) | `filesystem` (docs/novatech, data/retrieval-corpus) | `git` | `memory` | `everything` |
+|--------|:---:|:---:|:---:|:---:|:---:|
+| **GitHub Copilot** (gera código no IDE) | RW | RO | RO | RW | — |
+| **Claude Code** (refatora/automação) | RW | RO | RO | RW | RO |
+| **Claude Chat** (design/arquitetura) | RO | RO | RO | RW | RO |
 
-### Fluxo de aprovação
-
-```
-Proposta (qualquer membro) → Tech Lead avalia em 1 dia útil → 
-  [Baixo risco] → Aprovação direta do TL + PR com .mcp/mcp.json atualizado
-  [Médio risco] → TL + 1 Dev Sênior revisam → aprovação em até 3 dias úteis
-  [Alto risco]  → TL + consulta à equipe de segurança da DB1 → aprovação em até 5 dias úteis
-```
-
-### Classificação de risco
-
-| Nível | Critério |
-|-------|----------|
-| **Baixo** | Server RO, dados não-sensíveis, servidor público e auditado, sem escrita em sistemas de registro |
-| **Médio** | Server com acesso RW, ou dados internos da NovaTech, ou sem histórico público auditado |
-| **Alto** | Server com acesso a dados de clientes, credenciais, sistemas financeiros, ou qualquer escrita fora do repositório e board do projeto |
-
-### Requisitos mínimos para aprovação
-
-- [ ] Finalidade documentada (por que este server, o que resolve que os atuais não resolvem)
-- [ ] Classificação de risco preenchida
-- [ ] Permissões mínimas definidas (least privilege)
-- [ ] Responsável pela manutenção identificado (quem responde se o server quebrar)
-- [ ] Health check definido (como saber se está funcionando)
-- [ ] Plano de offboarding (como remover o server sem quebrar agentes existentes)
-
-### Critério de aderência verificável
-
-Nenhum server DEVE aparecer em `.mcp/mcp.json` sem um PR correspondente que inclua a proposta preenchida como comentário no PR.
-
----
-
-## 6. Monitoramento e Alertas
-
-### O que monitorar
-
-| Sinal | Fonte | Limiar para alerta |
-|-------|-------|-------------------|
-| Disponibilidade | Health check (script em `/infra/mcp-healthcheck.ts`) | 2 falhas consecutivas em 5 min |
-| Latência | Logs do MCP server (pino) | p95 > 3s por 5 min seguidos |
-| Taxa de erro | Logs estruturados | > 5% de erro em janela de 10 min |
-| Resposta suspeita | Validação de schema de output | Qualquer resposta fora do schema definido |
-
-### Onde os logs ficam
-
-- MCP servers customizados (MCP-02, MCP-03, MCP-04) DEVEM emitir logs em JSON com campos: `timestamp`, `server`, `tool`, `latency_ms`, `status`, `error` (se houver).
-- Logs DEVEM ser coletados no Azure Monitor Workspace do ambiente `dev`.
-- Em produção, os mesmos logs DEVEM alimentar alertas no Azure Monitor Alert Rules.
-
-### Alertas obrigatórios
-
-- **MCP-DOWN:** server não responde ao health check → notificação imediata no canal `#novatech-alerts` do Teams.
-- **MCP-DEGRADED:** latência alta ou taxa de erro > limiar → notificação no mesmo canal com severidade "warning".
-- **MCP-SCHEMA-VIOLATION:** resposta fora do schema → log de erro + notificação assíncrona (não bloqueia o agente, mas cria work item no Azure DevOps).
-
-### Critério de aderência verificável
-
-O pipeline CI (`ci.yml`) DEVE executar o health check contra os servers de `dev` ao final de cada build. Build falha se qualquer server retornar `DOWN`.
-
----
-
-## 7. Versionamento e Compatibilidade
-
-### Versionar servers customizados
-
-- MCP-02, MCP-03, MCP-04 DEVEM ter versão semântica (`MAJOR.MINOR.PATCH`) declarada no `package.json` do respectivo pacote em `/infra/mcp-servers/`.
-- Toda mudança de interface (tools, resources, prompts expostos) é `MAJOR` — breaking change.
-- Adição de novo tool ou resource sem remover os existentes é `MINOR`.
-- Correções de bug sem alteração de interface são `PATCH`.
-
-### Regra de compatibilidade
-
-- Uma mudança `MAJOR` em qualquer MCP server REQUER:
-  1. PR separado com descrição do breaking change.
-  2. Revisão de todos os agentes que consomem o server (ver seção 3).
-  3. Atualização do `.mcp/mcp.json` com a nova versão.
-  4. Período de coexistência: versão anterior mantida por 5 dias úteis após merge.
-
-- `.mcp/mcp.json` DEVE fixar versão exata dos servers customizados (`"version": "1.2.3"`, não `"^1.2.3"`).
-
-### Para servers públicos (MCP-01, MCP-05)
-
-- A versão do pacote npm DEVE ser fixada no `package.json` (`"@modelcontextprotocol/server-github": "1.0.0"`, sem `^` ou `~`).
-- Atualizações de versão seguem o mesmo processo que atualização de dependências de produção (PR + revisão).
-
-### Critério de aderência verificável
-
-`package.json` sem versões fixas em MCP servers constitui falha de lint — a regra DEVE ser configurada no `.eslintrc` ou equivalente.
-
----
-
-## 8. Plano de Contingência (Degradação)
-
-### Princípio
-
-Agente degradado é melhor que agente quebrado. Quando um MCP server fica indisponível, os agentes DEVEM continuar operando com capacidade reduzida, não falhar completamente.
-
-### Tabela de degradação por server
-
-| Server | Modo degradado | O que deixa de funcionar | O que continua funcionando |
-|--------|---------------|--------------------------|---------------------------|
-| MCP-01 `github` | Agente opera sem acesso ao repositório | Geração de artefatos com contexto de código; criação automática de PRs | Geração offline com contexto fornecido manualmente no prompt |
-| MCP-02 `azure-ai-search` | Agente não valida cobertura do índice | Verificação de chunks durante desenvolvimento | Geração de código contra spec e tipos TypeScript |
-| MCP-03 `azure-openai` | Agente não chama completion API | Testes de integração ao vivo durante desenvolvimento | Geração de código; testes unitários com mocks |
-| MCP-04 `confluence-novatech` | Agente usa contexto do Anexo A (embedado no AGENTS.md) | Consulta a páginas dinâmicas do Confluence | Respostas baseadas no snapshot do Anexo A |
-| MCP-05 `azure-devops` | Criação de work items é feita manualmente | Automação de tasks a partir de specs | Todo o desenvolvimento; apenas o tracking é afetado |
-
-### Regra operacional
-
-- QUANDO FALHAR MCP-01: o Tech Lead DEVE ser notificado para decidir se o desenvolvimento continua sem contexto de repositório ou se aguarda restabelecimento.
-- QUANDO FALHAR MCP-03: sessões de testes ao vivo DEVEM ser canceladas e reagendadas. Desenvolvimento continua.
-- QUANDO FALHAR MCP-04 por mais de 4h: o snapshot do Anexo A DEVE ser atualizado manualmente antes de continuar gerando artefatos que dependem de regras de negócio.
-
-### Critério de aderência verificável
-
-O runbook em `/docs/runbooks/mcp-degradado.md` DEVE existir e cobrir cada cenário desta tabela com passos executáveis.
-
----
-
-## 9. Riscos e Mitigações
-
-| # | Risco | Probabilidade | Impacto | Mitigação |
-|---|-------|--------------|---------|-----------|
-| R1 | **Vazamento de dados internos via MCP-04 (Confluence):** agente local do desenvolvedor acessa páginas internas da NovaTech via MCP e envia conteúdo a um modelo cloud sem controle. | Médio | Alto | MCP-04 DEVE usar service account com acesso mínimo ao espaço `NOVATECH-DOCS`. Logging obrigatório de todas as queries. Política de DLP no nível da rede corporativa bloqueando upload de dados classificados. |
-| R2 | **Injeção via conteúdo do repositório (MCP-01):** arquivo malicioso no repositório contém instruções que o agente executa como se fossem comandos legítimos. | Baixo | Alto | Claude Code opera com permissões definidas no AGENTS.md. Qualquer ação destrutiva (delete, force-push) REQUER confirmação humana explícita. Revisão obrigatória de PRs criados por agentes. |
-| R3 | **Consumo de tokens não controlado via MCP-03:** agente em loop consome quota da deployment de dev, impactando custos e disponibilidade para outros. | Médio | Médio | MCP-03 DEVE ter rate limit configurado no server (max 50 requests/hora por sessão). Alertas de custo no Azure Monitor a 80% da quota diária. |
-| R4 | **Drift de permissões:** permissões concedidas excedem o documentado neste arquivo, passando despercebidas. | Médio | Médio | Revisão trimestral automática via script que compara permissões reais (APIs das plataformas) com as documentadas aqui. Divergências geram work item no Azure DevOps com severidade "Medium". |
-| R5 | **Breaking change silenciosa em server público:** `@modelcontextprotocol/server-github` muda interface sem anúncio claro, quebrando agentes. | Baixo | Alto | Versões fixadas no `package.json`. Dependabot configurado para PRs de atualização (não auto-merge). Teste de contrato no CI que verifica as tools esperadas estão disponíveis. |
-| R6 | **Credenciais de MCP server em código:** desenvolvedor comita token ou connection string por acidente. | Baixo | Crítico | `.env` e arquivos de segredos no `.gitignore`. Pre-commit hook com `git-secrets` ou `trufflehog` para detectar patterns de credencial. Rotation automática de segredos via Azure Key Vault rotations. |
-
----
-
-## 10. SLOs Operacionais Sugeridos
-
-Os SLOs abaixo são para o ambiente de **desenvolvimento** (não produção). Em produção, os SLOs do assistente NovaTech são definidos separadamente no `SLA-2024`.
-
-| Server | SLO de Disponibilidade | SLO de Latência (p95) | Janela de medição |
-|--------|----------------------|----------------------|-------------------|
-| MCP-01 `github` | 99% | < 2s | Semanal |
-| MCP-02 `azure-ai-search` | 99,5% | < 1s | Semanal |
-| MCP-03 `azure-openai` | 98% | < 5s | Semanal |
-| MCP-04 `confluence-novatech` | 97% | < 3s | Semanal |
-| MCP-05 `azure-devops` | 99% | < 2s | Semanal |
-
-### Regras sobre SLOs
-
-- SLOs DEVEM ser revisados mensalmente nas primeiras 4 semanas do projeto — valores iniciais são estimativas.
-- QUANDO um server ficar abaixo do SLO de disponibilidade por 2 semanas consecutivas, o Tech Lead DEVE avaliar alternativa (server diferente ou cache local).
-- SLOs NÃO se aplicam a janelas de manutenção planejada (máximo 2h por semana por server, notificação com 24h de antecedência no `#novatech-alerts`).
-
-### Critério de aderência verificável
-
-Dashboard no Azure Monitor com os 5 servers monitorados DEVE existir e ser revisado no início de cada sprint. Link para o dashboard DEVE estar em `/docs/runbooks/mcp-degradado.md`.
-
----
-
-## Diagrama de Arquitetura MCP
+Regras de leitura da matriz:
+- **Copilot** escreve código (`src/`, specs, skills) e registra decisões no `memory`. **NÃO DEVE** escrever em `docs/novatech` nem `data/retrieval-corpus`.
+- **Claude Chat** atua em design: lê tudo, escreve apenas no grafo de decisões (`memory`). **NÃO DEVE** ter RW em `src/` — design não comita código diretamente.
+- **Toda** célula sob `docs/novatech` e `data/retrieval-corpus` é **RO sem exceção** (ADR-0003: documentos de negócio são fonte de verdade; agente não os altera).
+- Nenhum agente tem RW em `git` nesta fase (commits são ação humana revisada).
 
 ```mermaid
-graph TB
-    subgraph Agentes["Agentes de IA"]
-        CC["Claude Code\n(dev local)"]
-        CH["Claude Chat\n(sessão interativa)"]
-        CP["GitHub Copilot\n(IDE)"]
-    end
+flowchart LR
+  subgraph AG["Agentes"]
+    CP["GitHub Copilot"]
+    CC["Claude Code"]
+    CH["Claude Chat"]
+  end
 
-    subgraph Papeis["Papéis Humanos"]
-        TL["Tech Lead"]
-        DEV["Desenvolvedor"]
-        QA_["QA"]
-        PS["Product Specialist"]
-        DM["Delivery Manager"]
-    end
+  subgraph SRV["MCP servers locais (.mcp/mcp.json)"]
+    FS["filesystem"]
+    GIT["git (read-only)"]
+    MEM["memory"]
+    EV["everything (aprendizado)"]
+  end
 
-    subgraph Servers["MCP Servers (infraestrutura gerenciada)"]
-        MCP01["MCP-01\ngithub\nRO + RW controlado"]
-        MCP02["MCP-02\nazure-ai-search\nRO estrito"]
-        MCP03["MCP-03\nazure-openai\nRW (dev only)"]
-        MCP04["MCP-04\nconfluence-novatech\nRO estrito"]
-        MCP05["MCP-05\nazure-devops\nRW controlado"]
-    end
+  subgraph RW_ZONE["Código — RW"]
+    SRC["./src"]
+    SPECS["./specs"]
+    SKILLS["./skills"]
+  end
 
-    subgraph Sistemas["Sistemas Externos"]
-        GH["GitHub\ndb1/novatech-assistant"]
-        AIS["Azure AI Search\nnovatech-docs index"]
-        AOAI["Azure OpenAI\ngpt-4o-dev"]
-        CONF["Confluence NovaTech\nNOVATECH-DOCS space"]
-        ADO["Azure DevOps\nNovaTech-Assistant project"]
-    end
+  subgraph RO_ZONE["🔒 Fronteira de segurança — READ-ONLY (ADR-0003)"]
+    DOCS["./docs/novatech"]
+    CORPUS["./data/retrieval-corpus"]
+  end
 
-    subgraph Fronteira["🔒 Dados Internos NovaTech"]
-        AIS
-        CONF
-    end
+  subgraph FORBIDDEN["⛔ FORA DE ESCOPO — nunca exposto"]
+    ENV[".env / segredos"]
+    GITDIR[".git internals"]
+    NM["node_modules"]
+    INFRA["./infra (Bicep)"]
+  end
 
-    TL --> CC
-    TL --> CH
-    DEV --> CC
-    DEV --> CP
-    QA_ --> CH
-    PS --> CH
-    DM --> CH
+  CP -->|RW| FS
+  CC -->|RW| FS
+  CH -->|RO| FS
+  CP -->|RO| GIT
+  CC -->|RO| GIT
+  CH -->|RO| GIT
+  CP -->|RW| MEM
+  CC -->|RW| MEM
+  CH -->|RW| MEM
+  CC -->|RO| EV
+  CH -->|RO| EV
 
-    CC -->|"read code\ncreate PR"| MCP01
-    CH -->|"read code\nreview PR"| MCP01
-    CP -->|"read code"| MCP01
+  FS -->|RW| SRC
+  FS -->|RW| SPECS
+  FS -->|RW| SKILLS
+  FS -.->|RO enforce: OS perms + write-probe| DOCS
+  FS -.->|RO enforce: OS perms + write-probe| CORPUS
+  FS --x ENV
+  FS --x GITDIR
+  FS --x NM
+  FS --x INFRA
 
-    CC -->|"query index (dev)"| MCP02
-    CH -->|"query index (review)"| MCP02
-
-    CC -->|"completion (dev env)"| MCP03
-    CH -->|"completion (review)"| MCP03
-
-    CC -->|"read pages"| MCP04
-    CH -->|"read pages"| MCP04
-    CP -->|"read pages"| MCP04
-
-    CH -->|"read/write WI"| MCP05
-    CC -->|"read/write WI"| MCP05
-
-    MCP01 --- GH
-    MCP02 --- AIS
-    MCP03 --- AOAI
-    MCP04 --- CONF
-    MCP05 --- ADO
-
-    style Fronteira fill:#fff3cd,stroke:#ffc107,color:#000
-    style Servers fill:#e8f4f8,stroke:#2196F3,color:#000
-    style Agentes fill:#e8f5e9,stroke:#4CAF50,color:#000
+  GIT --> SRC
 ```
+
+**Critérios verificáveis (§3):**
+- [ ] Cada par (agente × server) tem RO ou RW explícito — sem célula ambígua.
+- [ ] `docs/novatech` e `data/retrieval-corpus` aparecem como RO para **todos** os agentes.
+- [ ] O diagrama mostra a fronteira de segurança e a zona "fora de escopo" (`.env`, `.git`, `node_modules`, `infra`).
 
 ---
 
-## Apêndice — Localização dos artefatos relacionados
+## 4. Permissões mínimas por server (least privilege)
 
-| Artefato | Caminho no repositório |
-|----------|----------------------|
-| Configuração MCP | `.mcp/mcp.json` |
-| Servers customizados | `/infra/mcp-servers/` |
-| Script de health check | `/infra/mcp-healthcheck.ts` |
-| Runbook de degradação | `/docs/runbooks/mcp-degradado.md` |
-| Dashboard de monitoramento | Azure Monitor (link em runbook) |
-| ADR de decisão MCP | `/docs/adr/0005-arquitetura-mcp.md` |
+### 4.1 `filesystem` — o ponto mais sensível
+
+**Raízes concedidas (e somente estas):**
+```
+./src
+./specs
+./skills
+./docs/novatech
+./data/retrieval-corpus
+```
+
+**Delta de least privilege vs. o `mcp.example.json` do starter:** o exemplo passa `./docs` e `./data` (pastas inteiras). Isto **DEVE** ser estreitado para `./docs/novatech` e `./data/retrieval-corpus` — as subpastas exatas que o agente precisa. `docs/adr`, `docs/runbooks`, `docs/onboarding.md` não são necessários ao loop de geração e **NÃO DEVEM** entrar no escopo.
+
+**O que NÃO DEVE estar nas raízes (justificativa):**
+
+| Caminho excluído | Justificativa de least privilege |
+|------------------|----------------------------------|
+| raiz do repo `.` | Daria acesso a `.env`, `.git`, `node_modules`, `infra`, `package.json` — escopo amplíssimo, expõe segredos. |
+| `.env` / `*.env` | Segredos. Vazamento direto se o agente os ler/colar em log ou resposta. |
+| `.git/` | Internals do Git devem ser acessados via server `git` (read-only), não como arquivos editáveis. |
+| `node_modules/` | Volume enorme, ruído de contexto, e código de terceiros não deve ser editado pelo agente. |
+| `infra/` (Bicep) | Mudança de IaC é alto impacto; fica fora do loop autônomo de geração nesta fase. |
+
+**Enforcement do RO em `docs/novatech` e `data/retrieval-corpus` (defesa em profundidade):**
+Como o reference server expõe `write_file`/`edit_file` em toda raiz (§2.1), o RO é garantido por **três camadas**, não pela config:
+
+1. **OS-level (garantia dura):** `chmod -R a-w docs/novatech data/retrieval-corpus` em ambiente de dev; *read-only bind mount* em container/CI. Mesmo que o agente chame `write_file`, o SO rejeita com `EACCES`.
+2. **Health-check write-probe (detecção):** o health check **DEVE** tentar escrever um arquivo temporário em cada pasta RO e **assertar que falha**. Se a escrita **suceder**, o server é reportado `DEGRADED` (a garantia de RO está quebrada).
+3. **Política/AGENTS.md (intenção):** regra prescritiva — agentes `NÃO DEVEM` chamar tools de escrita contra `docs/novatech` e `data/retrieval-corpus`.
+
+### 4.2 `git`
+
+- **Permissão mínima:** somente tools de leitura (`git_log`, `git_diff`, `git_status`, `git_show`, `git_branch`).
+- **Justificativa:** o valor é dar contexto histórico ao agente (o que mudou, por quê). Commit/branch são decisões humanas revisadas — escrita via agente burlaria o validation gate de PR.
+- `--repository .` aponta para o repo local; **NÃO DEVE** apontar para outro repositório.
+
+### 4.3 `memory`
+
+- **Permissão mínima:** RW no grafo, mas **escopo de conteúdo restrito** a decisões de arquitetura e linguagem ubíqua.
+- **Justificativa:** o grafo é o único store com escrita "livre" porque é metadado de baixo risco. O risco é poluição/segredo, mitigado pela regra de conteúdo (§2.3), não por permissão de I/O.
+
+### 4.4 `everything`
+
+- **Permissão mínima:** acesso default do reference server, **sem** nenhuma raiz de dados do projeto.
+- **Justificativa:** uso é aprendizado das primitivas; não precisa de nada do NovaTech.
+
+### 4.5 Configuração de referência implícita (a ser escrita no Prompt 3)
+
+Esta arquitetura implica o seguinte `.mcp/mcp.json` (o arquivo será efetivamente preenchido no Prompt 3 a partir do `mcp.example.json`, aplicando o estreitamento de escopo acima):
+
+```jsonc
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem",
+               "./src", "./specs", "./skills",
+               "./docs/novatech", "./data/retrieval-corpus"]
+    },
+    "git":     { "command": "uvx", "args": ["mcp-server-git", "--repository", "."] },
+    "memory":  { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory"] },
+    "everything": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-everything"] }
+  }
+}
+```
+
+**Critérios verificáveis (§4):**
+- [ ] O `filesystem` recebe `docs/novatech`/`data/retrieval-corpus` (subpastas), **não** `docs`/`data` inteiros.
+- [ ] `.env`, `.git`, `node_modules`, `infra` **não** aparecem em nenhuma raiz do `filesystem`.
+- [ ] Existe enforcement de RO em pelo menos uma camada dura (OS perms ou mount) + write-probe no health check.
+- [ ] Nenhum escopo amplo (pasta-pai) sem justificativa explícita escrita.
+
+---
+
+## 5. Política de aprovação para adicionar um novo server local
+
+Equilíbrio: **agilidade com segurança**. Nem burocracia que trava o time, nem "qualquer um adiciona qualquer server". O nível de revisão escala com o risco.
+
+### 5.1 Classificação de risco do server proposto
+
+| Nível | Definição | Exemplos |
+|-------|-----------|----------|
+| **Baixo** | Read-only, sem dados sensíveis, sem rede | `everything`, `git` (read-only), um server de leitura de docs |
+| **Médio** | Escrita em pastas de código já no escopo, ou leitura de pasta nova | `filesystem` ampliando raiz, `memory` |
+| **Alto** | Escrita em pastas novas, acesso a rede, ou qualquer caminho que possa conter segredos | server que toca `.env`, `infra/`, ou faz chamada externa |
+
+### 5.2 Fluxo de aprovação por nível
+
+| Nível | Quem revisa | SLA | Gate obrigatório |
+|-------|-------------|-----|------------------|
+| Baixo | 1 revisor (qualquer dev sênior do time) | mesmo dia | Passar no health check |
+| Médio | Tech Lead | até 1 dia útil | Health check + checklist de segurança §5.3 |
+| Alto | Tech Lead + 1 (segurança/owner do repo) | revisão dedicada | Checklist completo + fase piloto §5.4 + ADR |
+
+### 5.3 Checklist mínimo (todo PR que altera `.mcp/mcp.json`)
+
+**Segurança:**
+- [ ] Escopo de pastas é o **mínimo suficiente** (subpasta, não pasta-pai), com justificativa escrita.
+- [ ] RO vs RW declarado e correto; fontes de negócio permanecem RO.
+- [ ] Nenhum caminho com segredos (`.env`, `*.pem`, `*.key`, `.git`) no escopo.
+- [ ] Server roda **local** (sem endpoint externo/pago).
+
+**Valor:**
+- [ ] Há uma necessidade concreta do projeto que o server atende (linkar a spec/task/ADR).
+- [ ] A capacidade não é redundante com um server já existente.
+
+**Observabilidade (pré-requisito de uso):**
+- [ ] O server é coberto pelo health check e **passou** com saída real anexada ao PR.
+
+### 5.4 Fase piloto e promoção
+
+- Server `Alto` (ou novo padrão) entra primeiro como **piloto**: usado por 1 agente, por 1 desenvolvedor, por ≥ 3 dias úteis, com health check no CI.
+- **Critério de promoção** para uso amplo: zero incidentes de escopo no piloto + health check verde em todas as execuções + checklist §5.3 fechado.
+
+### 5.5 Critério de desativação/remoção
+
+Um server **DEVE** ser removido do `.mcp/mcp.json` quando: (a) ficou sem consumidor por 30 dias; (b) falha no health check de forma recorrente sem dono; ou (c) cumpriu seu propósito (ex.: `everything`, quando o time dominar MCP).
+
+**Critérios verificáveis (§5):**
+- [ ] Existem 3 níveis de risco com revisor e SLA distintos (não um fluxo único).
+- [ ] O checklist cobre segurança **e** valor **e** observabilidade.
+- [ ] Há critério explícito de piloto→promoção e de remoção.
+
+---
+
+## 6. Monitoramento
+
+Como saber que um server parou de responder ou perdeu acesso a uma pasta. Isto é executável de verdade (servers são locais) — implementado pelo health check (Prompts 3–4).
+
+### 6.1 Sinais monitorados por server
+
+| Server | Verificação | Falha = |
+|--------|-------------|---------|
+| `filesystem` | Handshake MCP + `list_directory` em cada raiz RW + **read-probe** em `docs/novatech` e `data/retrieval-corpus` + **write-probe** que DEVE falhar nas RO | Pasta inacessível, ou escrita possível em pasta RO |
+| `git` | Handshake + `git_log` retorna ≥ 1 commit | Sem repo / sem commit inicial |
+| `memory` | Handshake + `read_graph` responde | Processo não sobe / grafo corrompido |
+| `everything` | Handshake + `tools/list` retorna lista não-vazia | Processo não sobe |
+
+### 6.2 Estados e semântica
+
+- **OK** — handshake + todas as verificações passam.
+- **DEGRADED** — server sobe, mas alguma verificação falha (ex.: `filesystem` perdeu uma raiz, ou escrita possível em pasta RO, ou `git` sem histórico). Capacidade reduzida; agente DEVE operar em modo degradado (§8).
+- **DOWN** — server não faz handshake / processo não inicia.
+
+### 6.3 Cadência
+
+- **Local, sob demanda:** `npx tsx scripts/mcp-health-check.ts` antes de uma sessão de geração relevante.
+- **CI:** o health check roda no pipeline em todo PR que toca `.mcp/`, `docs/novatech/` ou `data/retrieval-corpus/`. Exit code != 0 bloqueia o merge.
+- **Saída dupla:** tabela no terminal (humano) + JSON (CI/automação).
+
+**Critérios verificáveis (§6):**
+- [ ] Cada server tem uma verificação concreta definida (não "checar se está ok").
+- [ ] O `filesystem` é monitorado por read-probe E write-probe (RO).
+- [ ] Estados OK/DEGRADED/DOWN têm definição objetiva e exit codes mapeados.
+
+---
+
+## 7. Versionamento e compatibilidade
+
+Como mudar o escopo de um server sem quebrar fluxos existentes.
+
+### 7.1 Regras
+
+- O `.mcp/mcp.json` **DEVE** ser versionado no Git. Toda mudança passa por PR (ver §5).
+- Versões dos pacotes de server **DEVEM** ser fixadas (pinning) — ex.: `@modelcontextprotocol/server-filesystem@<versão>` — para builds reprodutíveis. `NÃO DEVE` usar `latest` implícito em produção do time.
+- Mudança de escopo **só amplia com justificativa**; **estreitar** escopo é sempre permitido (mais seguro).
+
+### 7.2 Mudança que pode quebrar fluxo
+
+Toda alteração que **remove ou estreita** uma raiz é **breaking** para quem dependia dela. Procedimento:
+
+1. **Anunciar** no PR quais agentes/fluxos consumiam a raiz removida (consultar a matriz §3).
+2. **Rodar o health check** no estado novo — ele deve passar; se um fluxo esperado quebra, o write/read-probe acusa.
+3. **Migração:** se um agente perdeu acesso necessário, a mudança DEVE prover o caminho alternativo antes do merge (ex.: mover doc para uma raiz ainda acessível).
+4. **Registrar** a mudança de escopo no `prompt-changelog.md`/ADR e no grafo `memory`.
+
+### 7.3 Compatibilidade
+
+- A matriz de consumo (§3) é o **contrato**. Mudar escopo **DEVE** atualizar a matriz no mesmo PR. Matriz e `mcp.json` divergentes = red flag de revisão.
+
+**Critérios verificáveis (§7):**
+- [ ] Versões de pacote estão pinadas no `mcp.json` ou em doc de setup.
+- [ ] Há procedimento explícito para mudança breaking (estreitar/remover raiz).
+- [ ] A matriz §3 é declarada como contrato e atualizada junto com o `mcp.json`.
+
+---
+
+## 8. Plano de contingência (degradar com aviso, nunca alucinar)
+
+Princípio: **agente degradado com aviso > agente que inventa**. Proibido "se cair, para tudo" e proibido continuar como se o dado existisse.
+
+| Server indisponível | O que o agente PERDE | Modo degradado — o agente DEVE | O agente NÃO DEVE |
+|---------------------|----------------------|-------------------------------|-------------------|
+| `filesystem` perde `docs/novatech` | Fonte de negócio (políticas, SLA, FAQ) | Avisar: *"sem acesso à base de negócio; não vou inventar política/SLA"*; pedir o dado ao humano; seguir só em tarefas que não dependem da fonte | Responder regra de negócio "de memória" |
+| `filesystem` perde `data/retrieval-corpus` | "Recuperação" de chunks (RAG) | Avisar que o RAG está indisponível; responder só com o que está no contexto explícito; marcar a resposta como sem fonte recuperada | Fabricar `source_document` |
+| `git` não responde | Histórico/diff/contexto de mudança | Operar sem contexto histórico; declarar que não consegue justificar mudanças por histórico | Afirmar o que mudou sem poder verificar |
+| `memory` cai | Decisões e linguagem ubíqua persistidas | Operar com contexto da sessão atual; **não** persistir decisões até voltar; avisar que pode repetir decisão já tomada | Tratar como se não houvesse histórico de decisão e sobrescrever convenções |
+| Mudança de escopo no `mcp.json` quebra um fluxo | Acesso que existia antes | Health check acusa (DEGRADED); reverter o PR ou prover caminho alternativo (§7.2) antes de prosseguir | Forçar geração ignorando o acesso perdido |
+
+Para **cada** cenário (modelo executável por time pequeno):
+
+1. **Detecção** — health check reporta `DEGRADED`/`DOWN`; o agente percebe via tool error (`EACCES`, server não responde).
+2. **Ação imediata (0–15 min)** — rodar `mcp-health-check.ts`; identificar server e causa (não inicia / timeout / pasta inacessível / escopo divergente); aplicar o modo degradado da tabela.
+3. **Modo degradado** — conforme tabela: avisa, reduz capacidade, **nunca alucina**; o que não depende do server continua funcionando.
+4. **Escalonamento** — dev que detectou aciona o **Tech Lead**; mudança de escopo/segurança envolve o owner do repo. Sem dono em 1 dia útil → server marcado para remoção (§5.5).
+5. **Critério de retorno ao normal** — health check volta a `OK` (handshake + todas as verificações, incluindo write-probe RO) em duas execuções consecutivas.
+
+**Critérios verificáveis (§8):**
+- [ ] Cada um dos 5 cenários tem detecção, ação 0–15 min, modo degradado, escalonamento e retorno.
+- [ ] Em todo cenário o agente **avisa** e **não inventa** (sem `source_document` fabricado).
+- [ ] Nenhum cenário usa "para tudo" como resposta.
+
+---
+
+## 9. Riscos e mitigações (setup local)
+
+| # | Risco (específico ao setup LOCAL) | Severidade | Mitigação prescritiva |
+|---|-----------------------------------|:---------:|----------------------|
+| R1 | **`filesystem` com escopo amplo** (raiz `.` ou `docs`/`data` inteiros) expõe `.env`, `.git`, `infra`, segredos. | Alta | Estreitar raízes às subpastas exatas (§4.1); health check **DEVE** falhar se uma raiz proibida aparecer no `mcp.json`. |
+| R2 | **Escrita habilitada nas fontes de negócio** — o reference filesystem expõe `write_file` em toda raiz; agente pode alterar `docs/novatech` sem revisão. | Alta | Defesa em profundidade RO (§4.1): OS perms/mount read-only + write-probe no health check + regra no AGENTS.md. |
+| R3 | **Vazamento de segredo via contexto** — agente lê um arquivo com credencial e o ecoa em resposta/log/commit. | Alta | `.env` e `*.key`/`*.pem` fora de toda raiz (§4.1); regra: agente `NÃO DEVE` colar conteúdo de arquivo de config em resposta. |
+| R4 | **Poluição/segredo no `memory`** — grafo persistente vira lixeira ou guarda dado sensível. | Média | Regra de conteúdo (§2.3): só decisões e linguagem ubíqua; `NÃO DEVE` conter PII/segredo; revisão periódica do grafo. |
+| R5 | **Supply chain via `npx -y`/`uvx`** — `-y` instala o pacote sem prompt; pacote comprometido roda na máquina do dev. | Média | Pinar versão dos servers (§7.1); usar apenas pacotes oficiais `@modelcontextprotocol/*` / `mcp-server-git`; revisar mudança de pacote no PR. |
+| R6 | **`git init` ausente** — sem commit inicial, o server `git` não tem histórico e o agente opera "cego" achando que está OK. | Baixa | Pré-requisito do README (`git add -A && git commit`); health check `git` exige ≥ 1 commit, senão `DEGRADED`. |
+| R7 | **Config divergente entre devs** — `mcp.json` editado localmente e não versionado gera comportamento diferente por máquina. | Média | `.mcp/mcp.json` versionado e único (§7); divergência local é proibida; CI valida o arquivo no PR. |
+
+**Critérios verificáveis (§9):**
+- [ ] ≥ 5 riscos, todos específicos ao setup local (não genéricos de nuvem).
+- [ ] Cada risco tem severidade e mitigação **acionável** (não "ter cuidado").
+- [ ] R1 e R2 (escopo amplo / escrita em fonte de negócio) estão cobertos.
+
+---
+
+## Apêndice — Rastreabilidade aos critérios de avaliação 2.2
+
+| Critério da avaliação | Onde é atendido |
+|-----------------------|-----------------|
+| MCP como infraestrutura gerenciada (versionamento, monitoramento, política) | §1.1, §5, §6, §7 |
+| Diagrama de conexões (quem consome o quê, com permissões) | §3 (matriz + Mermaid) |
+| Política de aprovação equilibrada (agilidade + segurança) | §5 (níveis de risco, SLA, piloto) |
+| Least privilege concreto e justificado | §4 (raízes estreitadas, tabela de exclusões) |
+| Monitoramento (server caiu / perdeu pasta) | §6 (verificações, estados, write-probe) |
+| Versionamento sem quebrar fluxos | §7 (pinning, mudança breaking, matriz como contrato) |
+| Plano de contingência (degradar, não alucinar) | §8 (5 cenários executáveis) |
+| Riscos do setup local + mitigação | §9 (7 riscos) |
+
+> **Próximos prompts da 2.2:** Prompt 2 refina o diagrama e a matriz de permissões; Prompt 3 preenche o `.mcp/mcp.json` real e gera o health check (Copilot) **com saída de execução real**; Prompts 5–6 entregam contingência e política como artefatos dedicados; Prompt 7 consolida o relatório final.

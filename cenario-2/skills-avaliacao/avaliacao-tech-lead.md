@@ -35,7 +35,7 @@
 |----------|---------|-----------------|
 | MCP como infraestrutura | Versionamento, monitoramento, política de aprovação para novos servers | Configuração ad-hoc |
 | Diagrama de conexões | Quem consome o quê, com permissões | Sem diagrama |
-| Script de health check funcional | Lê config, testa conectividade, reporta status. Gerado com Copilot | Sem script ou não-funcional |
+| Script de health check executado | Lê o `.mcp/mcp.json`, sobe/consulta cada server local e reporta status, com saída de execução real. Gerado com Copilot | Sem script, não-funcional, ou sem saída de execução |
 | Plano de contingência realista | Agente degradado (capacidade reduzida) > agente quebrado (para tudo) | "Se cair, para tudo" |
 | Política de aprovação equilibrada | Agilidade com segurança: não burocratiza demais, não libera tudo | Extremos: burocracia ou nenhum controle |
 
