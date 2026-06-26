@@ -1,6 +1,6 @@
 # Prática 1 — Assistente de IA com RAG para a NovaTech
 
-Exercícios práticos dos **Cenário 1** e **Cenário 2** do programa de formação AI First, cobrindo fundamentos de IA Generativa, Engenharia de Prompt, Engenharia de Contexto, RAG e estruturação de projetos AI First.
+Exercícios práticos dos **Cenário 1**, **Cenário 2** e **Cenário 3** do programa de formação AI First, cobrindo fundamentos de IA Generativa, Engenharia de Prompt, Engenharia de Contexto, RAG e estruturação de projetos AI First.
 
 ## Cenário
 
@@ -47,38 +47,108 @@ A **NovaTech** é uma empresa de logística com 1.200 funcionários que contrato
 │       ├── cenario-1-avaliacao-qa.md   # Skill de Avaliação — QA (Cenário 1)
 │       ├── cenario-1-avaliacao-tech-lead.md   # Skill de Avaliação — Tech Lead (Cenário 1)
 │       └── cenario-1-prompt-avaliacao.md   # Prompt Padrão de Avaliação — Trilha AI First DGS
-└── cenario-2/
-    ├── Anexo-D-starter-repo-novatech-assistant.zip
-    ├── anexo-a-documentacao-simulada-novatech.md   # Anexo A — Documentação Simulada da NovaTech
-    ├── anexo-b-chunks-referencia-rag.md   # Anexo B — Chunks de Referência do Pipeline de RAG
-    ├── anexo-c-estrutura-repositorio.md   # Anexo C — Estrutura do Repositório NovaTech Assistant
-    ├── exercicio-2-fase-estruturacao.md   # Cenário-Âncora 2 — Fase de Estruturação do Trabalho
-    ├── tech-lead-2.1.prompt.md   # Prompts — Tech Lead 2.1 (Construção e Teste do AGENTS.md)
-    ├── tech-lead-2.2.prompt.md   # Prompts — Tech Lead 2.2 (Arquitetura de MCP — servers locais)
-    ├── tech-lead-2.3.prompt.md   # Prompts — Tech Lead 2.3 (Criação e Teste de Skills Técnicas)
+├── cenario-2/
+│   ├── Anexo-D-starter-repo-novatech-assistant.zip
+│   ├── anexo-a-documentacao-simulada-novatech.md   # Anexo A — Documentação Simulada da NovaTech
+│   ├── anexo-b-chunks-referencia-rag.md   # Anexo B — Chunks de Referência do Pipeline de RAG
+│   ├── anexo-c-estrutura-repositorio.md   # Anexo C — Estrutura do Repositório NovaTech Assistant
+│   ├── exercicio-2-fase-estruturacao.md   # Cenário-Âncora 2 — Fase de Estruturação do Trabalho
+│   ├── tech-lead-2.1.prompt.md   # Prompts — Tech Lead 2.1 (Construção e Teste do AGENTS.md)
+│   ├── tech-lead-2.2.prompt.md   # Prompts — Tech Lead 2.2 (Arquitetura de MCP — servers locais)
+│   ├── tech-lead-2.3.prompt.md   # Prompts — Tech Lead 2.3 (Criação e Teste de Skills Técnicas)
+│   ├── auto-avaliacao/
+│   │   ├── avaliacao-tech-lead-2.1.md   # Avaliação do Exercício 2.1 — Construção e teste do AGENTS.md
+│   │   ├── avaliacao-tech-lead-2.2.md   # Avaliação do Exercício 2.2 — Arquitetura de MCP do projeto (servers locais)
+│   │   └── avaliacao-tech-lead-2.3.md   # Avaliação do Exercício 2.3 — Criação e teste de skills técnicas
+│   ├── exercicios/
+│   │   ├── 2.1/
+│   │   │   ├── AGENTS-v1.md   # AGENTS.md — NovaTech Assistant (v1)
+│   │   │   ├── AGENTS-v2.md   # AGENTS.md — NovaTech Assistant (v2)
+│   │   │   ├── autochecagem-v2.md   # Auto-checagem Copilot — AGENTS.md v2 (Rodada 2)
+│   │   │   └── relatorio-final.md   # Relatório Final — Tech Lead 2.1 (Construção e Teste do AGENTS.md)
+│   │   ├── 2.2/
+│   │   │   ├── arquitetura-mcp.md   # Arquitetura de MCP — NovaTech Assistant (servers locais)
+│   │   │   ├── diagrama-e-matriz-permissoes.md   # Diagrama detalhado e Matriz de Permissões — MCP local (NovaTech Assistant)
+│   │   │   ├── health-check-hardening.md   # Hardening do health check MCP — entrega do GitHub Copilot (Exercício 2.2 · Prompt 4)
+│   │   │   ├── health-check-instrucoes.md   # Health check MCP local — entrega do GitHub Copilot (Exercício 2.2 · Prompt 3)
+│   │   │   ├── plano-contingencia.md   # Plano de Contingência — MCP local (NovaTech Assistant)
+│   │   │   ├── politica-aprovacao-mcp-server.md   # Política de Aprovação de Novo MCP Server Local — NovaTech Assistant
+│   │   │   └── relatorio-final.md   # Relatório Final — Tech Lead 2.2 (Arquitetura de MCP — servers locais)
+│   │   └── 2.3/
+│   │       ├── SKILL-v1.md   # Skill (Domain): `azure-functions-endpoint`
+│   │       ├── SKILL-v2.md   # Skill (Domain): `azure-functions-endpoint` (v2)
+│   │       ├── auditoria-aderencia.md   # Auditoria de aderência — skill `azure-functions-endpoint` (rodada 1)
+│   │       ├── copilot-rodada-1-testes.md   # Copilot — Rodada 1 (Prompt 4): testes Vitest do endpoint `POST /api/query`
+│   │       ├── copilot-rodada-1.md   # Copilot — Rodada 1 (Prompt 3): geração do endpoint `POST /api/query`
+│   │       ├── copilot-rodada-2.md   # Copilot — Rodada 2 (Prompt 7): reteste com a skill v2
+│   │       ├── criterios-maturidade.md   # Critérios de maturidade — skill `azure-functions-endpoint`
+│   │       └── relatorio-final.md   # Relatório Final — Exercício 2.3: Criação e Teste de Skill Técnica
+│   ├── novatech-assistant/
+│   │   ├── AGENTS.md   # AGENTS.md — NovaTech Assistant (v2)
+│   │   ├── package-lock.json
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   ├── vitest.config.ts
+│   │   ├── data/
+│   │   │   └── retrieval-corpus/
+│   │   ├── dist/
+│   │   │   ├── src/
+│   │   │   └── tests/
+│   │   ├── docs/
+│   │   │   ├── onboarding.md   # Onboarding — NovaTech Assistant
+│   │   │   ├── adr/
+│   │   │   ├── novatech/
+│   │   │   └── runbooks/
+│   │   ├── infra/
+│   │   │   ├── main.bicep
+│   │   │   ├── modules/
+│   │   │   └── parameters/
+│   │   ├── prompts/
+│   │   │   ├── prompt-changelog.md
+│   │   │   ├── system-prompt.md   # System Prompt — NovaTech Assistant (v1 — base do cenário 1, a evoluir)
+│   │   │   └── eval/
+│   │   ├── scripts/
+│   │   │   └── mcp-health-check.ts
+│   │   ├── skills/
+│   │   │   ├── artifact/
+│   │   │   ├── domain/
+│   │   │   └── foundation/
+│   │   ├── specs/
+│   │   │   ├── feedback-api/
+│   │   │   ├── painel-web/
+│   │   │   ├── pipeline-ingestao/
+│   │   │   ├── query-endpoint/
+│   │   │   └── teams-bot/
+│   │   ├── src/
+│   │   │   ├── bot/
+│   │   │   ├── functions/
+│   │   │   ├── pipeline/
+│   │   │   ├── services/
+│   │   │   ├── shared/
+│   │   │   └── web/
+│   │   └── tests/
+│   │       ├── e2e/
+│   │       ├── fixtures/
+│   │       ├── integration/
+│   │       └── unit/
+│   └── skills-avaliacao/
+│       ├── avaliacao-delivery-manager.md   # Skill de Avaliação — Delivery Manager (Cenário 2)
+│       ├── avaliacao-desenvolvedor.md   # Skill de Avaliação — Desenvolvedor (Cenário 2)
+│       ├── avaliacao-foundation.md   # Skill de Avaliação — Foundation (Cenário 2)
+│       ├── avaliacao-product-specialist.md   # Skill de Avaliação — Product Specialist (Cenário 2)
+│       ├── avaliacao-qa.md   # Skill de Avaliação — QA (Cenário 2)
+│       ├── avaliacao-tech-lead.md   # Skill de Avaliação — Tech Lead (Cenário 2)
+│       └── prompt-avaliacao.md   # Prompt Padrão de Avaliação — Trilha AI First DGS (Cenário 2)
+└── cenario-3/
+    ├── cenario-3-exercicios-fase-governanca.md   # Cenário-Âncora 3 — Fase de Governança e Validação
+    ├── tech-lead-3.1-copilot-prompt.md   # Prompt Copilot — Tech Lead 3.1 · Prompt 2
+    ├── tech-lead-3.1.prompt.md   # Prompts — Tech Lead 3.1 (Design do Harness do Projeto)
+    ├── tech-lead-3.2.prompt.md   # Prompts — Tech Lead 3.2 (Revisão Crítica da Arquitetura Gerada com IA)
     ├── exercicios/
-    │   ├── 2.1/
-    │   │   ├── AGENTS-v1.md   # AGENTS.md — NovaTech Assistant (v1)
-    │   │   ├── AGENTS-v2.md   # AGENTS.md — NovaTech Assistant (v2)
-    │   │   ├── autochecagem-v2.md   # Auto-checagem Copilot — AGENTS.md v2 (Rodada 2)
-    │   │   └── relatorio-final.md   # Relatório Final — Tech Lead 2.1 (Construção e Teste do AGENTS.md)
-    │   ├── 2.2/
-    │   │   ├── arquitetura-mcp.md   # Arquitetura de MCP — NovaTech Assistant (servers locais)
-    │   │   ├── diagrama-e-matriz-permissoes.md   # Diagrama detalhado e Matriz de Permissões — MCP local (NovaTech Assistant)
-    │   │   ├── health-check-hardening.md   # Hardening do health check MCP — entrega do GitHub Copilot (Exercício 2.2 · Prompt 4)
-    │   │   ├── health-check-instrucoes.md   # Health check MCP local — entrega do GitHub Copilot (Exercício 2.2 · Prompt 3)
-    │   │   ├── plano-contingencia.md   # Plano de Contingência — MCP local (NovaTech Assistant)
-    │   │   ├── politica-aprovacao-mcp-server.md   # Política de Aprovação de Novo MCP Server Local — NovaTech Assistant
-    │   │   └── relatorio-final.md   # Relatório Final — Tech Lead 2.2 (Arquitetura de MCP — servers locais)
-    │   └── 2.3/
-    │       ├── SKILL-v1.md   # Skill (Domain): `azure-functions-endpoint`
-    │       ├── SKILL-v2.md   # Skill (Domain): `azure-functions-endpoint` (v2)
-    │       ├── auditoria-aderencia.md   # Auditoria de aderência — skill `azure-functions-endpoint` (rodada 1)
-    │       ├── copilot-rodada-1-testes.md   # Copilot — Rodada 1 (Prompt 4): testes Vitest do endpoint `POST /api/query`
-    │       ├── copilot-rodada-1.md   # Copilot — Rodada 1 (Prompt 3): geração do endpoint `POST /api/query`
-    │       ├── copilot-rodada-2.md   # Copilot — Rodada 2 (Prompt 7): reteste com a skill v2
-    │       ├── criterios-maturidade.md   # Critérios de maturidade — skill `azure-functions-endpoint`
-    │       └── relatorio-final.md   # Relatório Final — Exercício 2.3: Criação e Teste de Skill Técnica
+    │   ├── 3.1/
+    │   │   └── relatorio-final.md   # Relatório Final — Tech Lead 3.1: Design do Harness do Projeto
+    │   └── 3.2/
+    │       └── relatorio-final.md   # Relatório Final — Tech Lead 3.2: Revisão Crítica da Arquitetura Gerada com IA
     ├── novatech-assistant/
     │   ├── AGENTS.md   # AGENTS.md — NovaTech Assistant (v2)
     │   ├── package-lock.json
@@ -128,13 +198,13 @@ A **NovaTech** é uma empresa de logística com 1.200 funcionários que contrato
     │       ├── integration/
     │       └── unit/
     └── skills-avaliacao/
-        ├── avaliacao-delivery-manager.md   # Skill de Avaliação — Delivery Manager (Cenário 2)
-        ├── avaliacao-desenvolvedor.md   # Skill de Avaliação — Desenvolvedor (Cenário 2)
-        ├── avaliacao-foundation.md   # Skill de Avaliação — Foundation (Cenário 2)
-        ├── avaliacao-product-specialist.md   # Skill de Avaliação — Product Specialist (Cenário 2)
-        ├── avaliacao-qa.md   # Skill de Avaliação — QA (Cenário 2)
-        ├── avaliacao-tech-lead.md   # Skill de Avaliação — Tech Lead (Cenário 2)
-        └── prompt-avaliacao.md   # Prompt Padrão de Avaliação — Trilha AI First DGS (Cenário 2)
+        ├── avaliacao-delivery-manager.md   # Skill de Avaliação — Delivery Manager (Cenário 3)
+        ├── avaliacao-desenvolvedor.md   # Skill de Avaliação — Desenvolvedor (Cenário 3)
+        ├── avaliacao-foundation.md   # Skill de Avaliação — Foundation (Cenário 3)
+        ├── avaliacao-product-specialist.md   # Skill de Avaliação — Product Specialist (Cenário 3)
+        ├── avaliacao-qa.md   # Skill de Avaliação — QA (Cenário 3)
+        ├── avaliacao-tech-lead.md   # Skill de Avaliação — Tech Lead (Cenário 3)
+        └── prompt-avaliacao.md   # Prompt Padrão de Avaliação — Trilha AI First DGS (Cenário 3)
 ```
 
 ## Exercícios por Papel
